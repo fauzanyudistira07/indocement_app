@@ -28,6 +28,8 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+
+	<!-- Orientasi layar -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -41,20 +43,38 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- 📸 Kamera & Galeri -->
+	<key>NSCameraUsageDescription</key>
+	<string>Aplikasi membutuhkan akses kamera.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>App membutuhkan akses ke penyimpanan untuk menyimpan file.</string>
+	<string>Aplikasi membutuhkan akses galeri foto.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Aplikasi membutuhkan akses mikrofon.</string>
+
+	<!-- 📂 Penyimpanan / Dokumen -->
 	<key>NSDocumentsFolderUsageDescription</key>
-	<string>App membutuhkan akses ke dokumen untuk menyimpan file.</string>
+	<string>Aplikasi membutuhkan akses ke dokumen untuk menyimpan file.</string>
+
+	<!-- 📍 Lokasi -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Aplikasi membutuhkan akses lokasi saat digunakan.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Aplikasi membutuhkan akses lokasi meskipun berjalan di background.</string>
+
+	<!-- 🔔 Notifikasi -->
 	<key>UIBackgroundModes</key>
 	<array>
 	    <string>fetch</string>
 	    <string>remote-notification</string>
 	</array>
 	<key>NSUserNotificationUsageDescription</key>
-	<string>We need to send you notifications.</string>
+	<string>Aplikasi perlu mengirimkan notifikasi.</string>
+
 </dict>
 </plist>

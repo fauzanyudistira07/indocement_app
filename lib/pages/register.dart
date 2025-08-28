@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'login.dart';
+import 'package:flutter/services.dart';
+
 
 User? _user;
 
@@ -391,7 +393,14 @@ class _RegisterState extends State<Register> {
                     ),
                     const SizedBox(height: 30),
                     _buildField('Nama', _namaController, 900),
-                    _buildField('Nomor Karyawan', _nomoridController, 900),
+                    _buildField(
+  'Nomor Karyawan',
+  _nomoridController,
+  900,
+  keyboardType: TextInputType.number,
+  maxLength: 7,
+  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+),
                     _buildSectionField(1000),
                     _buildField('Email', _emailController, 1100),
                     _buildField('Password', _passwordController, 1200,
@@ -477,51 +486,63 @@ class _RegisterState extends State<Register> {
     );
   }
 
-  Widget _buildField(
-      String hint, TextEditingController controller, int duration,
-      {bool obscure = false, TextInputType keyboardType = TextInputType.text}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: FadeInLeft(
-        duration: Duration(milliseconds: duration),
-        child: Container(
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.grey)),
-          ),
-          child: TextField(
-            controller: controller,
-            obscureText: obscure ? _obscurePassword : false,
-            keyboardType: keyboardType,
-            style: GoogleFonts.poppins(fontSize: 16),
-            decoration: InputDecoration(
-              hintText: hint,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              hintStyle: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
-              suffixIcon: obscure
-                  ? IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                        color: Colors.grey,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    )
-                  : null,
+Widget _buildField(
+  String hint,
+  TextEditingController controller,
+  int duration, {
+  bool obscure = false,
+  TextInputType keyboardType = TextInputType.text,
+  int? maxLength,
+  List<TextInputFormatter>? inputFormatters,
+}) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 20),
+    child: FadeInLeft(
+      duration: Duration(milliseconds: duration),
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.grey)),
+        ),
+        child: TextField(
+          controller: controller,
+          obscureText: obscure ? _obscurePassword : false,
+          keyboardType: keyboardType,
+          style: GoogleFonts.poppins(fontSize: 16),
+          inputFormatters: [
+            if (maxLength != null)
+              LengthLimitingTextInputFormatter(maxLength),
+            ...?inputFormatters
+          ],
+          decoration: InputDecoration(
+            hintText: hint,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            hintStyle: GoogleFonts.poppins(
+              fontSize: 16,
+              color: Colors.grey,
             ),
+            suffixIcon: obscure
+                ? IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  )
+                : null,
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildSectionField(int duration) {
     return Padding(
