@@ -1,0 +1,2 @@
+C:/Users/admin/Documents/indocement_apk/android/app/.cxx/RelWithDebInfo/4i1v526e/x86/CMakeFiles/edit_cache.dir
+C:/Users/admin/Documents/indocement_apk/android/app/.cxx/RelWithDebInfo/4i1v526e/x86/CMakeFiles/rebuild_cache.dir

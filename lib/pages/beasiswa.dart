@@ -257,34 +257,171 @@ class _BeasiswaPageState extends State<BeasiswaPage> {
   Future<void> _pickFile(Function(File) onPicked) async {
     final result = await showModalBottomSheet<String>(
       context: this.context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-              title: const Text('Pilih PDF dari File'),
-              onTap: () => Navigator.pop(context, 'pdf'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.image, color: Colors.blue),
-              title: const Text('Pilih Gambar dari Galeri'),
-              onTap: () => Navigator.pop(context, 'image'),
-            ),
-          ],
-        ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-    );
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.picture_as_pdf, color: Colors.red, size: 40),
+              const SizedBox(height: 12),
+              const Text(
+                'Upload Dokumen Pengajuan',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Pilih jenis file yang ingin diunggah untuk pengajuan beasiswa.',
+                style: TextStyle(fontSize: 14, color: Colors.black54),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                title: const Text('Pilih PDF dari File'),
+                onTap: () async {
+                  Navigator.pop(context, 'pdf');
+                  // Modal instruksi modern
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => Dialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1572E8).withOpacity(0.08),
+                                shape: BoxShape.circle,
+                              ),
+                              padding: const EdgeInsets.all(18),
+                              child: const Icon(Icons.upload_file, color: Color(0xFF1572E8), size: 48),
+                            ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              'Konfirmasi Upload Dokumen',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                                color: Color(0xFF1572E8),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              "Pastikan dokumen yang Anda kirim sudah berisi:",
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Color(0xFFF5F8FE),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("• KIBK (Kartu Izin Berobat Keluarga)", style: TextStyle(fontSize: 14)),
+                                  Text("• Fotocopy Kartu Keluarga", style: TextStyle(fontSize: 14)),
+                                  Text("• Surat keterangan dan nilai dari kampus/sekolah", style: TextStyle(fontSize: 14)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              "Apakah Anda sudah menyiapkan dokumen tersebut?",
+                              style: TextStyle(fontSize: 15, color: Colors.black87),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 28),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    icon: const Icon(Icons.close, color: Color(0xFF1572E8)),
+                                    label: const Text(
+                                      'Belum',
+                                      style: TextStyle(
+                                        color: Color(0xFF1572E8),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(color: Color(0xFF1572E8), width: 2),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                    onPressed: () => Navigator.pop(context, false),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.check_circle, color: Colors.white),
+                                    label: const Text(
+                                      'Sudah',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1572E8),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      elevation: 2,
+                                    ),
+                                    onPressed: () => Navigator.pop(context, true),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ));
+                  if (confirm == true) {
+                    FilePickerResult? picked = await FilePicker.platform.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['pdf'],
+                    );
+                    if (picked != null && picked.files.single.path != null) {
+                      onPicked(File(picked.files.single.path!));
+                    }
+                  } else {
+  // Kembali ke halaman Beasiswa
+  Navigator.of(this.context).pop();
+}
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.image, color: Colors.blue),
+                title: const Text('Pilih Gambar dari Galeri'),
+                onTap: () => Navigator.pop(context, 'image'),
+              ),
+            ],
+          ),
+        ),
+      ));
 
-    if (result == 'pdf') {
-      FilePickerResult? picked = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-      );
-      if (picked != null && picked.files.single.path != null) {
-        onPicked(File(picked.files.single.path!));
-      }
-    } else if (result == 'image') {
+    if (result == 'image') {
       final picked = await ImagePicker()
           .pickImage(source: ImageSource.gallery, imageQuality: 85);
       if (picked != null) {
@@ -793,18 +930,6 @@ class _BeasiswaPageState extends State<BeasiswaPage> {
                                 ),
                                 // Upload KIBK & KK di sini
                                 const SizedBox(height: 16),
-                                uploadField(
-                                  title: 'KIBK (Kartu Izin Berobat Keluarga)',
-                                  file: fileKibk,
-                                  onPressed: () => _pickFile(
-                                      (f) => setState(() => fileKibk = f)),
-                                ),
-                                uploadField(
-                                  title: 'Fotocopy Kartu Keluarga',
-                                  file: fileKk,
-                                  onPressed: () => _pickFile(
-                                      (f) => setState(() => fileKk = f)),
-                                ),
                               ],
                             ),
                           ),
@@ -870,20 +995,6 @@ class _BeasiswaPageState extends State<BeasiswaPage> {
                                 ),
                                 // Upload Surat Mahasiswa & Nilai IPK di sini
                                 const SizedBox(height: 16),
-                                uploadField(
-                                  title:
-                                      'Surat keterangan sebagai Mahasiswa (asli) dari pihak Kampus / Sekolah',
-                                  file: fileSuratMahasiswa,
-                                  onPressed: () => _pickFile((f) =>
-                                      setState(() => fileSuratMahasiswa = f)),
-                                ),
-                                uploadField(
-                                  title:
-                                      'Fotocopy nilai IPK yang telah dilegalisir / Raport yang telah dilegalisir',
-                                  file: fileNilaiIpk,
-                                  onPressed: () => _pickFile(
-                                      (f) => setState(() => fileNilaiIpk = f)),
-                                ),
                               ],
                             ),
                           ),
@@ -957,13 +1068,6 @@ class _BeasiswaPageState extends State<BeasiswaPage> {
                                 ),
                                 // Upload Surat Ranking di sini
                                 const SizedBox(height: 16),
-                                uploadField(
-                                  title:
-                                      'Surat Keterangan Ranking dari pihak sekolah',
-                                  file: fileSuratRanking,
-                                  onPressed: () => _pickFile((f) =>
-                                      setState(() => fileSuratRanking = f)),
-                                ),
                               ],
                             ),
                           ),
@@ -1378,8 +1482,7 @@ Navigator.of(context).pop();
                                                   child: ElevatedButton(
                                                     style: ElevatedButton
                                                         .styleFrom(
-                                                      backgroundColor:
-                                                          Colors.red,
+                                                      backgroundColor: Colors.red,
                                                       shape:
                                                           RoundedRectangleBorder(
                                                               borderRadius:
@@ -1776,10 +1879,6 @@ Navigator.of(context).pop();
               ),
             ),
           );
-        } finally {
-          setState(() {
-            isSendingUpload = false;
-          });
         }
       },
           ),
@@ -1844,7 +1943,9 @@ Navigator.of(context).pop();
         context: context,
         barrierDismissible: false,
         builder: (context) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: Column(
@@ -1878,7 +1979,8 @@ Navigator.of(context).pop();
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1572E8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 15),
                     ),
                     onPressed: () {
@@ -1908,7 +2010,9 @@ Navigator.of(context).pop();
         context: context,
         barrierDismissible: false,
         builder: (context) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: Column(
@@ -1942,7 +2046,8 @@ Navigator.of(context).pop();
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 15),
                     ),
                     onPressed: () {
@@ -1970,7 +2075,9 @@ Navigator.of(context).pop();
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
           child: Column(
@@ -2004,7 +2111,8 @@ Navigator.of(context).pop();
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     padding: const EdgeInsets.symmetric(vertical: 15),
                   ),
                   onPressed: () {

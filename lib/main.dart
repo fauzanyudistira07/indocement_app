@@ -116,7 +116,6 @@ Future<void> showNotif(String title, String body) async {
     payload: 'inbox',
   );
 }
-
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
