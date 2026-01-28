@@ -175,14 +175,18 @@ class _MasterScreenState extends State<MasterScreen>
   }
 
   void _closeLoadingDialog() {
-    if (_isLoadingDialogVisible && mounted && Navigator.canPop(context)) {
-      Navigator.pop(context);
-      setState(() {
-        _isLoadingDialogVisible = false;
-      });
-    } else {
+    if (!_isLoadingDialogVisible) return;
+    if (!mounted) {
       _isLoadingDialogVisible = false;
+      return;
     }
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
+    setState(() {
+      _isLoadingDialogVisible = false;
+    });
   }
 
   Future<void> _showVerificationApprovedModal(
@@ -272,7 +276,7 @@ class _MasterScreenState extends State<MasterScreen>
   }
 
   void _showLoading(BuildContext context) {
-    if (_isLoadingDialogVisible) return;
+    if (!mounted || _isLoadingDialogVisible) return;
 
     setState(() {
       _isLoadingDialogVisible = true;
@@ -281,6 +285,7 @@ class _MasterScreenState extends State<MasterScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
+      useRootNavigator: true,
       builder: (BuildContext context) {
         return Dialog(
           shape: RoundedRectangleBorder(
@@ -662,6 +667,7 @@ class _MasterContentState extends State<MasterContent> {
     showDialog(
       context: context,
       barrierDismissible: false,
+      useRootNavigator: true,
       builder: (BuildContext context) {
         return Dialog(
           shape: RoundedRectangleBorder(
@@ -710,13 +716,18 @@ class _MasterContentState extends State<MasterContent> {
   void _closeLoadingDialog() {
     final masterScreenState =
         context.findAncestorStateOfType<_MasterScreenState>();
-    if (masterScreenState?._isLoadingDialogVisible ??
-        false && mounted && Navigator.canPop(context)) {
-      Navigator.pop(context);
-      masterScreenState?.setState(() {
-        masterScreenState._isLoadingDialogVisible = false;
-      });
+    if (!(masterScreenState?._isLoadingDialogVisible ?? false)) return;
+    if (!mounted) {
+      masterScreenState?._isLoadingDialogVisible = false;
+      return;
     }
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
+    masterScreenState?.setState(() {
+      masterScreenState._isLoadingDialogVisible = false;
+    });
   }
 
   Future<void> _fetchProfilePhoto() async {
@@ -1293,58 +1304,64 @@ class Categories extends StatelessWidget {
                 press: () async {
                   final masterScreenState =
                       context.findAncestorStateOfType<_MasterScreenState>();
-                  masterScreenState?._showLoading(context);
-                  final hasNetwork = await checkNetwork();
-                  if (!hasNetwork) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const Error404Screen()),
-                    );
-                    return;
-                  }
-                  if (category["text"] == "BPJS") {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const BPJSPage(),
-                      ),
-                    );
-                  } else if (category["text"] == "HR Chat") {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const HRCareMenuPage(),
-                      ),
-                    );
-                  } else if (category["text"] == "ID Card") {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const IdCardUploadPage(),
-                      ),
-                    );
-                  } else if (category["text"] == "SK Kerja & Medical") {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SKKMedicPage(),
-                      ),
-                    );
-                  } else if (category["text"] == "Layanan Karyawan") {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LayananMenuPage(),
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content:
-                            Text('Menu ${category["text"]} belum tersedia'),
-                      ),
-                    );
+                  try {
+                    masterScreenState?._showLoading(context);
+                    final hasNetwork = await checkNetwork();
+                    if (!hasNetwork) {
+                      masterScreenState?._closeLoadingDialog();
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const Error404Screen()),
+                      );
+                      return;
+                    }
+                    masterScreenState?._closeLoadingDialog();
+                    if (category["text"] == "BPJS") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const BPJSPage(),
+                        ),
+                      );
+                    } else if (category["text"] == "HR Chat") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const HRCareMenuPage(),
+                        ),
+                      );
+                    } else if (category["text"] == "ID Card") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const IdCardUploadPage(),
+                        ),
+                      );
+                    } else if (category["text"] == "SK Kerja & Medical") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SKKMedicPage(),
+                        ),
+                      );
+                    } else if (category["text"] == "Layanan Karyawan") {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LayananMenuPage(),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content:
+                              Text('Menu ${category["text"]} belum tersedia'),
+                        ),
+                      );
+                    }
+                  } finally {
+                    masterScreenState?._closeLoadingDialog();
                   }
                 },
               );

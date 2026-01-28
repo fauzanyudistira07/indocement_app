@@ -161,7 +161,7 @@ class _PCIRPageState extends State<PCIRPage>
                       if (index == 0) {
                         return _buildMenuBox(
                           icon: Icons.person,
-                          title: 'Daftar Istri/Suami',
+                          title: 'Update data Pasangan',
                           color: Colors.blue,
                           onTap: () {
                             Navigator.push(

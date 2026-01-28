@@ -13,12 +13,28 @@ import 'package:image/image.dart' as imageLib;
 import 'package:geocoding/geocoding.dart';
 import 'package:indocement_apk/service/api_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:mime/mime.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:path/path.dart' as path;
 
 class AbsensiLapanganScreen extends StatefulWidget {
   final double kantorLat;
   final double kantorLng;
   final int eventId;
-  const AbsensiLapanganScreen({super.key, required this.kantorLat, required this.kantorLng, required this.eventId});
+  final DateTime? eventMulai;
+  final DateTime? eventSelesai;
+  final String? eventJamMasuk;
+  final String? eventJamKeluar;
+  const AbsensiLapanganScreen({
+    super.key,
+    required this.kantorLat,
+    required this.kantorLng,
+    required this.eventId,
+    this.eventMulai,
+    this.eventSelesai,
+    this.eventJamMasuk,
+    this.eventJamKeluar,
+  });
 
   @override
   State<AbsensiLapanganScreen> createState() => _AbsensiLapanganScreenState();
@@ -28,6 +44,10 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
   late double kantorLat;
   late double kantorLng;
   late int eventId;
+  DateTime? eventMulai;
+  DateTime? eventSelesai;
+  String? eventJamMasuk;
+  String? eventJamKeluar;
   final double radiusZona = 100; // meter
 
   Position? _currentPosition;
@@ -51,6 +71,10 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
     kantorLat = widget.kantorLat; // Ambil dari parameter halaman sebelumnya
     kantorLng = widget.kantorLng; // Ambil dari parameter halaman sebelumnya
     eventId = widget.eventId; // <-- simpan eventId dari halaman sebelumnya
+    eventMulai = widget.eventMulai;
+    eventSelesai = widget.eventSelesai;
+    eventJamMasuk = widget.eventJamMasuk;
+    eventJamKeluar = widget.eventJamKeluar;
     _getCurrentLocation();
     _loadIdEmployee();
     _initCamera();
@@ -311,7 +335,7 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
     } catch (e) {}
   }
 
-  Future<bool> _sudahAbsenHariIni() async {
+  Future<int> _countAbsenHariIni() async {
     try {
       final response = await ApiService.get(
         'http://103.31.235.237:5555/api/Absensi',
@@ -320,8 +344,9 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         final now = DateTime.now();
+        int count = 0;
         for (var absen in data) {
-          if (absen['IdEmployee'] == _idEmployee) {
+          if (absen['IdEmployee'] == _idEmployee && absen['EventId'] == eventId) {
             // Cek CreatedAt
             final createdAtStr = absen['CreatedAt'];
             if (createdAtStr != null) {
@@ -330,16 +355,60 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
                   createdAt.year == now.year &&
                   createdAt.month == now.month &&
                   createdAt.day == now.day) {
-                return true;
+                count++;
               }
             }
           }
         }
+        return count;
       }
     } catch (e) {
       // Bisa tambahkan log jika perlu
     }
-    return false;
+    return 0;
+  }
+
+  DateTime? _parseTimeOnDate(DateTime baseDate, String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty) return null;
+    // Expect "HH:mm" or "HH:mm:ss"
+    final parsed = DateTime.tryParse('1970-01-01T$timeStr');
+    if (parsed == null) return null;
+    return DateTime(
+      baseDate.year,
+      baseDate.month,
+      baseDate.day,
+      parsed.hour,
+      parsed.minute,
+      parsed.second,
+    );
+  }
+
+  DateTime _dateOnly(DateTime dt) {
+    return DateTime(dt.year, dt.month, dt.day);
+  }
+
+  bool _isWithinEventDateRange(DateTime now) {
+    if (eventMulai == null && eventSelesai == null) return true;
+    final nowDate = _dateOnly(now);
+    final startDate = eventMulai != null ? _dateOnly(eventMulai!) : null;
+    final endDate = eventSelesai != null ? _dateOnly(eventSelesai!) : null;
+    if (startDate != null && nowDate.isBefore(startDate)) return false;
+    if (endDate != null && nowDate.isAfter(endDate)) return false;
+    return true;
+  }
+
+  ({DateTime? start, DateTime? end}) _buildShiftWindow(DateTime now) {
+    final baseDate = _dateOnly(now);
+    final start = _parseTimeOnDate(baseDate, eventJamMasuk);
+    final end = _parseTimeOnDate(baseDate, eventJamKeluar);
+    if (start == null || end == null) {
+      return (start: start, end: end);
+    }
+    if (!end.isAfter(start)) {
+      // Shift melewati tengah malam
+      return (start: start, end: end.add(const Duration(days: 1)));
+    }
+    return (start: start, end: end);
   }
 
   Future<void> _uploadAbsensi() async {
@@ -348,9 +417,27 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
       return;
     }
 
-    // CEK SUDAH ABSEN HARI INI
-    bool sudahAbsen = await _sudahAbsenHariIni();
-    if (sudahAbsen) {
+    // Validasi rentang waktu event (tanggal/jam jika tersedia) sebelum upload
+    final now = DateTime.now();
+    if (!_isWithinEventDateRange(now)) {
+      Fluttertoast.showToast(msg: 'Absensi hanya bisa dilakukan pada rentang tanggal event.');
+      return;
+    }
+    final window = _buildShiftWindow(now);
+    if (window.start != null && now.isBefore(window.start!)) {
+      Fluttertoast.showToast(
+        msg: 'Absensi belum dibuka. Jam masuk: ${_formatDateTime(window.start!)}',
+      );
+      return;
+    }
+
+    // CEK ABSEN HARI INI
+    final absenCount = await _countAbsenHariIni();
+    if (absenCount >= 2) {
+      Fluttertoast.showToast(msg: 'Anda sudah melakukan absensi masuk dan keluar hari ini.');
+      return;
+    }
+    if (absenCount >= 1 && window.end != null && now.isBefore(window.end!)) {
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -388,10 +475,12 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    'Anda sudah melakukan absensi untuk hari ini. Silakan kembali besok.',
+                  Text(
+                    window.end != null
+                        ? 'Anda sudah absen masuk. Silakan kembali saat jam keluar (${_formatDateTime(window.end!)}).'
+                        : 'Anda sudah melakukan absensi untuk hari ini.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 15,
                       color: Color(0xFF333333),
                       height: 1.5,
@@ -437,28 +526,26 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
     });
 
     try {
-      final token = await ApiService.getToken();
-      final dio = Dio();
+      final mimeType = lookupMimeType(_imageFile!.path) ?? 'image/jpeg';
       final formData = FormData.fromMap({
         'IdEmployee': _idEmployee.toString(),
         'Jarak': _jarak.toString(),
-        'Status': (_jarak! <= radiusZona)
-            ? 'Berada di lingkungan Event'
-            : 'Di luar lingkungan Event',
+        'Status': _getStatusWaktu(),
         'EventId': eventId.toString(),
-        'UrlFoto': await MultipartFile.fromFile(_imageFile!.path, filename: _imageFile!.path.split('/').last),
+        'UrlFoto': await MultipartFile.fromFile(
+          _imageFile!.path,
+          filename: path.basename(_imageFile!.path),
+          contentType: MediaType.parse(mimeType),
+        ),
       });
 
-      final response = await dio.post(
+      final response = await ApiService.post(
         'http://103.31.235.237:5555/api/Absensi/upload',
         data: formData,
-        options: Options(
-          headers: {
-            'accept': 'application/json',
-            if (token != null) 'Authorization': 'Bearer $token',
-          },
-        ),
+        headers: {'accept': 'text/plain'},
       );
+      print('Absensi upload status: ${response.statusCode}');
+      print('Absensi upload response: ${response.data}');
 
       setState(() {
         _isUploading = false;
@@ -506,8 +593,23 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
       setState(() {
         _isUploading = false;
       });
-      Fluttertoast.showToast(msg: 'Terjadi error saat upload absensi!');
+      String msg = 'Terjadi error saat upload absensi!';
+      if (e is DioException) {
+        final status = e.response?.statusCode;
+        final data = e.response?.data;
+        if (status == 401) {
+          Fluttertoast.showToast(msg: 'Sesi login sudah habis. Silakan login ulang.');
+          return;
+        }
+        msg = 'Upload gagal: ${status ?? '-'} ${data ?? ''}'.trim();
+      }
+      Fluttertoast.showToast(msg: msg);
     }
+  }
+
+  String _formatDateTime(DateTime dt) {
+    final two = (int v) => v.toString().padLeft(2, '0');
+    return '${two(dt.day)}-${two(dt.month)}-${dt.year} ${two(dt.hour)}:${two(dt.minute)}';
   }
 
   void _showFakeGpsModal() {

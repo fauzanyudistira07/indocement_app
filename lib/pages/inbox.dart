@@ -350,7 +350,7 @@ class _InboxPageState extends State<InboxPage> {
       return 'Unknown Date';
     }
     try {
-      final formatter = DateFormat('dd MMMM yyyy HH.mm', 'id_ID');
+      final formatter = DateFormat('dd/MM/yy HH.mm');
       final dateTime = DateTime.parse(timeString).toLocal();
       return formatter.format(dateTime);
     } catch (e) {

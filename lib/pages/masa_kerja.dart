@@ -172,7 +172,7 @@ class _MasaKerjaPageState extends State<MasaKerjaPage> {
     String formatTanggal(String dateStr) {
       try {
         final date = DateTime.parse(dateStr);
-        return DateFormat('dd MMMM yyyy', 'id_ID').format(date);
+        return DateFormat('dd/MM/yy').format(date);
       } catch (_) {
         return dateStr;
       }

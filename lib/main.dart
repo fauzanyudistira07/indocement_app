@@ -172,6 +172,7 @@ class _SplashScreenState extends State<SplashScreen>
     final prefs = await SharedPreferences.getInstance();
     final employeeId = prefs.getInt('idEmployee');
     if (employeeId == null) return;
+    _shownNotifIds = (prefs.getStringList('shownNotifIds') ?? []).toSet();
 
     _notifTimer = Timer.periodic(const Duration(minutes: 1), (_) async {
       try {
@@ -186,24 +187,22 @@ class _SplashScreenState extends State<SplashScreen>
               .where((notif) => notif['IdEmployee']?.toString() == employeeId.toString())
               .toList();
 
-          // Ambil notifikasi yang belum dibaca
-          final unread = notifications.where((notif) =>
-            notif['Status']?.toString() != 'Dibaca' &&
-            notif['Status']?.toString() != 'Dilihat'
-          ).toList();
+          // Cek notifikasi baru yang belum pernah ditampilkan (semua source)
+          final allIds = notifications.map((n) => n['Id'].toString()).toSet();
+          final newIds = allIds.difference(_shownNotifIds);
 
-          // Cek apakah ada notifikasi baru yang belum pernah ditampilkan
-          final unreadIds = unread.map((n) => n['Id'].toString()).toSet();
-          final newUnreadIds = unreadIds.difference(_shownNotifIds);
-
-          if (newUnreadIds.isNotEmpty) {
-            // Tampilkan satu notifikasi lokal saja
-            await showNotif(
-              "Inbox Indocement",
-              "Ada ${unread.length} notifikasi baru/belum dibaca di Inbox Anda."
-            );
-            // Tandai semua yang sudah ditampilkan agar tidak dobel
-            _shownNotifIds.addAll(newUnreadIds);
+          if (newIds.isNotEmpty) {
+            for (final notif in notifications) {
+              final id = notif['Id']?.toString();
+              if (id == null || !newIds.contains(id)) continue;
+              final title = notif['Source']?.toString() ?? 'Notifikasi';
+              final status = notif['Status']?.toString() ?? '-';
+              final message = (notif['Message'] ?? notif['Keterangan'] ?? notif['Title'] ?? '').toString();
+              final body = message.isNotEmpty ? '$status - $message' : 'Status: $status';
+              await showNotif(title, body);
+              _shownNotifIds.add(id);
+            }
+            await prefs.setStringList('shownNotifIds', _shownNotifIds.toList());
           }
         }
       } catch (e) {

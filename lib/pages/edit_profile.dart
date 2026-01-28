@@ -99,14 +99,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
     return null;
   }
 
-  String? _formatDateOnly(String? dateString) {
-    if (dateString == null || dateString.isEmpty) return null;
+  DateTime? _parseDateFlexible(String? value) {
+    if (value == null || value.isEmpty) return null;
     try {
-      final dateTime = DateTime.parse(dateString);
-      return DateFormat('yyyy-MM-dd').format(dateTime);
-    } catch (e) {
-      return dateString;
-    }
+      return DateTime.parse(value);
+    } catch (_) {}
+    try {
+      return DateFormat('yyyy-MM-dd').parseStrict(value);
+    } catch (_) {}
+    try {
+      return DateFormat('dd/MM/yy').parseStrict(value);
+    } catch (_) {}
+    return null;
+  }
+
+  String? _formatDateDisplay(String? dateString) {
+    final dateTime = _parseDateFlexible(dateString);
+    if (dateTime == null) return null;
+    return DateFormat('dd/MM/yy').format(dateTime);
+  }
+
+  String? _formatDateApi(String? dateString) {
+    final dateTime = _parseDateFlexible(dateString);
+    if (dateTime == null) return null;
+    return DateFormat('yyyy-MM-dd').format(dateTime);
   }
 
   @override
@@ -168,7 +184,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
               status == 'Approved') {
             String? newValue = newValueRaw;
             if (fieldName == 'BirthDate' || fieldName == 'ServiceDate') {
-              newValue = _formatDateOnly(newValueRaw);
+              newValue = _formatDateDisplay(newValueRaw);
             }
 
             setState(() {
@@ -179,7 +195,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   break;
                 case 'BirthDate':
                   _birthDateController.text = newValue ?? '';
-                  fullData['BirthDate'] = newValue;
+                  fullData['BirthDate'] =
+                      _formatDateApi(newValue) ?? newValue;
                   break;
                 case 'Gender':
                   _selectedGender = _mapGenderFromApi(newValue);
@@ -199,7 +216,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   break;
                 case 'ServiceDate':
                   _serviceDateController.text = newValue ?? '';
-                  fullData['ServiceDate'] = newValue;
+                  fullData['ServiceDate'] =
+                      _formatDateApi(newValue) ?? newValue;
                   break;
                 case 'NoBpjs':
                   _noBpjsController.text = newValue ?? '';
@@ -278,30 +296,22 @@ class _EditProfilePageState extends State<EditProfilePage> {
             : null;
         final sectionName = await _fetchSectionName(idSection);
 
-        String? validatedBirthDate = _formatDateOnly(employee['BirthDate']);
+        String? validatedBirthDate =
+            _formatDateDisplay(employee['BirthDate']);
         if (validatedBirthDate != null && validatedBirthDate.isNotEmpty) {
-          try {
-            final parsedDate =
-                DateFormat('yyyy-MM-dd').parse(validatedBirthDate);
-            final firstDate = DateTime(1900);
-            if (parsedDate.isBefore(firstDate)) {
-              validatedBirthDate = '';
-            }
-          } catch (e) {
+          final parsedDate = _parseDateFlexible(validatedBirthDate);
+          final firstDate = DateTime(1900);
+          if (parsedDate == null || parsedDate.isBefore(firstDate)) {
             validatedBirthDate = '';
           }
         }
 
-        String? validatedServiceDate = _formatDateOnly(employee['ServiceDate']);
+        String? validatedServiceDate =
+            _formatDateDisplay(employee['ServiceDate']);
         if (validatedServiceDate != null && validatedServiceDate.isNotEmpty) {
-          try {
-            final parsedDate =
-                DateFormat('yyyy-MM-dd').parse(validatedServiceDate);
-            final firstDate = DateTime(1900);
-            if (parsedDate.isBefore(firstDate)) {
-              validatedServiceDate = '';
-            }
-          } catch (e) {
+          final parsedDate = _parseDateFlexible(validatedServiceDate);
+          final firstDate = DateTime(1900);
+          if (parsedDate == null || parsedDate.isBefore(firstDate)) {
             validatedServiceDate = '';
           }
         }
@@ -501,10 +511,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _employeeNameController.text = fullData['EmployeeName'] ?? '';
       _jobTitleController.text = fullData['JobTitle'] ?? '';
       _livingAreaController.text = fullData['LivingArea'] ?? '';
-      _birthDateController.text = _formatDateOnly(fullData['BirthDate']) ?? '';
+      _birthDateController.text =
+          _formatDateDisplay(fullData['BirthDate']) ?? '';
       _employeeNoController.text = fullData['EmployeeNo'] ?? '';
       _serviceDateController.text =
-          _formatDateOnly(fullData['ServiceDate']) ?? '';
+          _formatDateDisplay(fullData['ServiceDate']) ?? '';
       _noBpjsController.text = fullData['NoBpjs'] ?? '';
       _selectedGender = _mapGenderFromApi(fullData['Gender']);
       _selectedEducation = _mapEducationFromApi(fullData['Education']);
@@ -849,16 +860,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
     DateTime initialDate = DateTime.now();
 
     if (controller.text.isNotEmpty) {
-      try {
-        initialDate = DateFormat('yyyy-MM-dd').parse(controller.text);
+      final parsed = _parseDateFlexible(controller.text);
+      if (parsed != null) {
+        initialDate = parsed;
         if (initialDate.isBefore(firstDate)) {
           initialDate = firstDate;
         }
         if (initialDate.isAfter(lastDate)) {
           initialDate = lastDate;
         }
-      } catch (e) {
-        initialDate = DateTime.now();
       }
     }
 
@@ -871,9 +881,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     if (picked != null) {
       setState(() {
-        controller.text = DateFormat('yyyy-MM-dd').format(picked);
-        if (controller.text != oldValue && controller.text.isNotEmpty) {
-          _changedFields[fieldName] = controller.text;
+        final displayValue = DateFormat('dd/MM/yy').format(picked);
+        final apiValue = DateFormat('yyyy-MM-dd').format(picked);
+        controller.text = displayValue;
+        final normalizedOld = _formatDateApi(oldValue) ?? oldValue;
+        if (apiValue != normalizedOld && controller.text.isNotEmpty) {
+          _changedFields[fieldName] = apiValue;
         } else {
           _changedFields.remove(fieldName);
         }
@@ -888,17 +901,21 @@ class _EditProfilePageState extends State<EditProfilePage> {
     bool isDateField = false,
     String? fieldName,
     String? oldValue,
+    bool alwaysReadOnly = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextField(
         controller: controller,
-        readOnly: !isEditing || (isDateField && isEditing),
+        readOnly: alwaysReadOnly || !isEditing || (isDateField && isEditing),
         keyboardType: keyboardType,
-        onTap: isDateField && isEditing
+        onTap: isDateField && isEditing && !alwaysReadOnly
             ? () => _selectDate(context, controller, fieldName!, oldValue!)
             : null,
-        onChanged: isEditing && fieldName != null && oldValue != null
+        onChanged: isEditing &&
+                !alwaysReadOnly &&
+                fieldName != null &&
+                oldValue != null
             ? (value) {
                 setState(() {
                   if (value != oldValue && value.isNotEmpty) {
@@ -1103,10 +1120,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       _jobTitleController.text = fullData['JobTitle'] ?? '';
                       _livingAreaController.text = fullData['LivingArea'] ?? '';
                       _birthDateController.text =
-                          _formatDateOnly(fullData['BirthDate']) ?? '';
+                          _formatDateDisplay(fullData['BirthDate']) ?? '';
                       _employeeNoController.text = fullData['EmployeeNo'] ?? '';
                       _serviceDateController.text =
-                          _formatDateOnly(fullData['ServiceDate']) ?? '';
+                          _formatDateDisplay(fullData['ServiceDate']) ?? '';
                       _noBpjsController.text = fullData['NoBpjs'] ?? '';
                       _selectedGender = _mapGenderFromApi(fullData['Gender']);
                       _selectedEducation =
@@ -1203,6 +1220,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 keyboardType: TextInputType.text,
                 fieldName: 'EmployeeNo',
                 oldValue: fullData['EmployeeNo'] ?? '',
+                alwaysReadOnly: true,
               ),
               _buildTextField(
                 label: 'Jabatan',
@@ -1210,6 +1228,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 keyboardType: TextInputType.text,
                 fieldName: 'JobTitle',
                 oldValue: fullData['JobTitle'] ?? '',
+                alwaysReadOnly: true,
               ),
               _buildTextField(
                 label: 'Tanggal Mulai Kerja',
@@ -1218,6 +1237,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 isDateField: true,
                 fieldName: 'ServiceDate',
                 oldValue: fullData['ServiceDate'] ?? '',
+                alwaysReadOnly: true,
               ),
               _buildTextField(
                 label: 'Nomor BPJS',
@@ -1225,6 +1245,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 keyboardType: TextInputType.text,
                 fieldName: 'NoBpjs',
                 oldValue: fullData['NoBpjs'] ?? '',
+                alwaysReadOnly: true,
               ),
               _buildTextField(
                 label: 'Lokasi Kerja',
@@ -1232,6 +1253,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 keyboardType: TextInputType.text,
                 fieldName: 'WorkLocation',
                 oldValue: fullData['WorkLocation'] ?? '',
+                alwaysReadOnly: true,
               ),
               _buildTextField(
                 label: 'Section',
@@ -1239,6 +1261,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 keyboardType: TextInputType.text,
                 fieldName: 'Section',
                 oldValue: fullData['Section'] ?? '',
+                alwaysReadOnly: true,
               ),
             ]),
             _buildSectionCard('Kontak', [
@@ -1255,6 +1278,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 keyboardType: TextInputType.emailAddress,
                 fieldName: 'Email',
                 oldValue: fullData['Email'] ?? '',
+                alwaysReadOnly: true,
               ),
               _buildTextField(
                 label: 'Living Area',

@@ -191,8 +191,7 @@ class _IdCardUploadPageState extends State<IdCardUploadPage> {
         String formattedDate = 'Tanggal tidak tersedia';
         if (tglPengajuan != null) {
           final dateTime = DateTime.parse(tglPengajuan).toLocal();
-          formattedDate =
-              DateFormat('dd MMMM yyyy HH:mm', 'id_ID').format(dateTime);
+          formattedDate = DateFormat('dd/MM/yy HH:mm').format(dateTime);
         }
 
         _showPopup(

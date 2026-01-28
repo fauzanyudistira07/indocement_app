@@ -36,6 +36,23 @@ class _ChatPageState extends State<ChatPage> {
   bool _showConnectedMessage = false;
   bool _firstRoomLoad = true;
 
+  DateTime? _parseChatDateTime(String value) {
+    try {
+      return DateTime.parse(value);
+    } catch (_) {}
+    final formats = [
+      DateFormat('dd/MM/yy HH.mm'),
+      DateFormat('dd MMMM yyyy HH.mm', 'id_ID'),
+      DateFormat('dd MMM yyyy', 'id_ID'),
+    ];
+    for (final format in formats) {
+      try {
+        return format.parseLoose(value);
+      } catch (_) {}
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -629,9 +646,13 @@ class _ChatPageState extends State<ChatPage> {
             .map((msg) {
           String formattedCreatedAt;
           try {
-            final dateTime = DateTime.parse(msg['CreatedAt']).toLocal();
-            formattedCreatedAt =
-                DateFormat('dd MMMM yyyy HH.mm', 'id_ID').format(dateTime);
+            final parsed = _parseChatDateTime(msg['CreatedAt']);
+            if (parsed != null) {
+              formattedCreatedAt =
+                  DateFormat('dd/MM/yy HH.mm').format(parsed.toLocal());
+            } else {
+              formattedCreatedAt = msg['CreatedAt'];
+            }
           } catch (e) {
             formattedCreatedAt = msg['CreatedAt'];
           }
@@ -915,8 +936,7 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     final now = DateTime.now();
-    final formattedCreatedAt =
-        DateFormat('dd MMMM yyyy HH.mm', 'id_ID').format(now);
+    final formattedCreatedAt = DateFormat('dd/MM/yy HH.mm').format(now);
     final timestamp = _formatTimestamp(formattedCreatedAt);
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
     final tempMessage = {
@@ -1084,8 +1104,11 @@ class _ChatPageState extends State<ChatPage> {
 
     print('Parsing timestamp: $timeString');
     try {
-      final formatter = DateFormat('dd MMMM yyyy HH.mm', 'id_ID');
-      final dateTime = formatter.parseLoose(timeString).toLocal();
+      final parsedDateTime = _parseChatDateTime(timeString);
+      if (parsedDateTime == null) {
+        return {'time': '--:--', 'date': 'Unknown Date'};
+      }
+      final dateTime = parsedDateTime.toLocal();
       final now = DateTime.now();
       final isToday = dateTime.year == now.year &&
           dateTime.month == now.month &&
@@ -1093,8 +1116,7 @@ class _ChatPageState extends State<ChatPage> {
       return {
         'time':
             "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}",
-        'date':
-            isToday ? '' : DateFormat('dd MMM yyyy', 'id_ID').format(dateTime),
+        'date': isToday ? '' : DateFormat('dd/MM/yy').format(dateTime),
       };
     } catch (e) {
       print('Error parsing timestamp: $timeString, Error: $e');

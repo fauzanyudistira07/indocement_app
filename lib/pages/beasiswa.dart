@@ -69,8 +69,7 @@ class _BeasiswaPageState extends State<BeasiswaPage> {
 
     // Set tanggal otomatis
     final now = DateTime.now();
-    tanggalController.text =
-        "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}";
+    tanggalController.text = DateFormat('dd/MM/yy').format(now);
   }
 
   Future<void> _fetchAndFillEmployeeData() async {
@@ -227,7 +226,7 @@ class _BeasiswaPageState extends State<BeasiswaPage> {
     if (tanggalLahirAnakController.text.isNotEmpty) {
       try {
         initialDate =
-            DateFormat('dd-MM-yy').parse(tanggalLahirAnakController.text);
+            DateFormat('dd/MM/yy').parse(tanggalLahirAnakController.text);
         if (initialDate.isBefore(firstDate)) {
           initialDate = firstDate;
         }
@@ -248,7 +247,8 @@ class _BeasiswaPageState extends State<BeasiswaPage> {
 
     if (picked != null) {
       setState(() {
-        tanggalLahirAnakController.text = DateFormat('dd-MM-yy').format(picked);
+        tanggalLahirAnakController.text =
+            DateFormat('dd/MM/yy').format(picked);
       });
     }
   }

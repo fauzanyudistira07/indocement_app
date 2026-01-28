@@ -1339,7 +1339,7 @@ class _ScheduleShiftPageState extends State<ScheduleShiftPage>
                                               child: Text(
                                                 _selectedDate == null
                                                     ? 'Pilih tanggal'
-                                                    : DateFormat('dd/MM/yyyy')
+                                                    : DateFormat('dd/MM/yy')
                                                         .format(_selectedDate!),
                                                 style: GoogleFonts.poppins(),
                                               ),

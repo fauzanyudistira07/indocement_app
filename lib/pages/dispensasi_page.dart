@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:indocement_apk/service/api_service.dart';
 import 'package:path/path.dart' as path;
@@ -23,7 +24,7 @@ class _DispensasiPageState extends State<DispensasiPage> {
   File? _suratKeteranganMeninggal;
   File? _ktp;
   File? _sim;
-  File? _dokumenLain;
+  final List<File> _dokumenLain = [];
   bool _isLoading = false;
 
   @override
@@ -211,29 +212,70 @@ class _DispensasiPageState extends State<DispensasiPage> {
     );
   }
 
+  Future<String?> _pickFileSource() async {
+    return showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                title: Text('PDF', style: GoogleFonts.poppins()),
+                onTap: () => Navigator.of(context).pop('pdf'),
+              ),
+              ListTile(
+                leading:
+                    const Icon(Icons.photo_library, color: Color(0xFF1572E8)),
+                title: Text('Foto (Galeri)', style: GoogleFonts.poppins()),
+                onTap: () => Navigator.of(context).pop('image'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _pickFile(String field) async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
-      );
+      final source = await _pickFileSource();
+      if (source == null) return;
 
-      if (result != null &&
-          result.files.isNotEmpty &&
-          result.files.first.path != null) {
+      File? selectedFile;
+      if (source == 'pdf') {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf'],
+        );
+        if (result != null &&
+            result.files.isNotEmpty &&
+            result.files.first.path != null) {
+          selectedFile = File(result.files.first.path!);
+        }
+      } else {
+        final picked =
+            await ImagePicker().pickImage(source: ImageSource.gallery);
+        if (picked != null) {
+          selectedFile = File(picked.path);
+        }
+      }
+
+      if (selectedFile != null) {
         setState(() {
           switch (field) {
             case 'SuratKeteranganMeninggal':
-              _suratKeteranganMeninggal = File(result.files.first.path!);
+              _suratKeteranganMeninggal = selectedFile;
               break;
             case 'Ktp':
-              _ktp = File(result.files.first.path!);
+              _ktp = selectedFile;
               break;
             case 'Sim':
-              _sim = File(result.files.first.path!);
-              break;
-            case 'DokumenLain':
-              _dokumenLain = File(result.files.first.path!);
+              _sim = selectedFile;
               break;
           }
         });
@@ -245,7 +287,62 @@ class _DispensasiPageState extends State<DispensasiPage> {
     }
   }
 
-  Future<void> _handleSubmit() async {
+  Future<void> _pickOptionalPhotos() async {
+    try {
+      final picked = await ImagePicker().pickMultiImage();
+      if (picked.isNotEmpty) {
+        setState(() {
+          _dokumenLain.addAll(picked.map((x) => File(x.path)));
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorModal('Gagal memilih foto: $e');
+      }
+    }
+  }
+
+  String? _validateFormat(String format) {
+    bool isPdf(File? file) =>
+        file != null && file.path.toLowerCase().endsWith('.pdf');
+    bool isImage(File? file) {
+      if (file == null) return false;
+      final lower = file.path.toLowerCase();
+      return lower.endsWith('.jpg') ||
+          lower.endsWith('.jpeg') ||
+          lower.endsWith('.png');
+    }
+
+    if (format == 'pdf') {
+      if (_suratKeteranganMeninggal != null &&
+          !isPdf(_suratKeteranganMeninggal)) {
+        return 'Surat Keterangan Meninggal harus berformat PDF jika diunggah.';
+      }
+      if (!isPdf(_ktp)) {
+        return 'KTP harus berformat PDF.';
+      }
+      if (_sim != null && !isPdf(_sim)) {
+        return 'SIM harus berformat PDF jika diunggah.';
+      }
+      if (_dokumenLain.isNotEmpty) {
+        return 'Foto opsional hanya bisa dikirim jika memilih format JPG/PNG.';
+      }
+    } else {
+      if (_suratKeteranganMeninggal != null &&
+          !isImage(_suratKeteranganMeninggal)) {
+        return 'Surat Keterangan Meninggal harus berformat JPG/PNG jika diunggah.';
+      }
+      if (!isImage(_ktp)) {
+        return 'KTP harus berformat JPG/PNG.';
+      }
+      if (_sim != null && !isImage(_sim)) {
+        return 'SIM harus berformat JPG/PNG jika diunggah.';
+      }
+    }
+    return null;
+  }
+
+  Future<void> _handleSubmit(String format) async {
     if (_jenisDispensasiController.text.trim().isEmpty) {
       if (mounted) {
         _showErrorModal('Jenis dispensasi tidak boleh kosong.');
@@ -258,21 +355,16 @@ class _DispensasiPageState extends State<DispensasiPage> {
       }
       return;
     }
-    if (_suratKeteranganMeninggal == null) {
-      if (mounted) {
-        _showErrorModal('Surat Keterangan Meninggal wajib diunggah.');
-      }
-      return;
-    }
     if (_ktp == null) {
       if (mounted) {
         _showErrorModal('KTP wajib diunggah.');
       }
       return;
     }
-    if (_sim == null) {
+    final formatError = _validateFormat(format);
+    if (formatError != null) {
       if (mounted) {
-        _showErrorModal('SIM wajib diunggah.');
+        _showErrorModal(formatError);
       }
       return;
     }
@@ -298,6 +390,7 @@ class _DispensasiPageState extends State<DispensasiPage> {
         'IdEmployee': idEmployee.toString(),
         'JenisDispensasi': _jenisDispensasiController.text.trim(),
         'Keterangan': _keteranganController.text.trim(),
+        'OutputFormat': format,
         if (_suratKeteranganMeninggal != null)
           'SuratKeteranganMeninggal': await MultipartFile.fromFile(
             _suratKeteranganMeninggal!.path,
@@ -313,11 +406,14 @@ class _DispensasiPageState extends State<DispensasiPage> {
             _sim!.path,
             filename: path.basename(_sim!.path),
           ),
-        if (_dokumenLain != null)
-          'DokumenLain': await MultipartFile.fromFile(
-            _dokumenLain!.path,
-            filename: path.basename(_dokumenLain!.path),
-          ),
+        if (_dokumenLain.isNotEmpty)
+          'DokumenLain': [
+            for (final file in _dokumenLain)
+              await MultipartFile.fromFile(
+                file.path,
+                filename: path.basename(file.path),
+              ),
+          ],
       });
 
       _showLoading(context);
@@ -423,24 +519,32 @@ class _DispensasiPageState extends State<DispensasiPage> {
                   ),
                   const SizedBox(height: 30),
                   _buildTextField(
-                      'Jenis Dispensasi', _jenisDispensasiController, 900),
-                  _buildTextField('Keterangan', _keteranganController, 1000),
-                  _buildFileField(
-                    'Surat Keterangan Meninggal',
-                    'SuratKeteranganMeninggal',
-                    1100,
+                    'Jenis Dispensasi',
+                    _jenisDispensasiController,
+                    900,
                   ),
-                  _buildFileField('KTP', 'Ktp', 1200),
-                  _buildFileField('SIM', 'Sim', 1300),
+                  _buildTextField(
+                    'Keterangan',
+                    _keteranganController,
+                    1000,
+                    maxLines: 3,
+                  ),
+                  _buildFileField('KTP', 'Ktp', 1100),
                   _buildFileField(
-                      'Dokumen Lain (Opsional)', 'DokumenLain', 1400),
+                    'Surat Keterangan Meninggal (Opsional)',
+                    'SuratKeteranganMeninggal',
+                    1200,
+                  ),
+                  _buildFileField('SIM (Opsional)', 'Sim', 1300),
+                  _buildOptionalPhotosField(1400),
                   const SizedBox(height: 30),
                   FadeInUp(
                     duration: const Duration(milliseconds: 1500),
                     child: SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleSubmit,
+                        onPressed:
+                            _isLoading ? null : () => _showSubmitFormatDialog(),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 15),
                           backgroundColor: const Color(0xFF1572E8),
@@ -477,28 +581,54 @@ class _DispensasiPageState extends State<DispensasiPage> {
     String hint,
     TextEditingController controller,
     int duration,
+    {int maxLines = 1}
   ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: FadeInLeft(
         duration: Duration(milliseconds: duration),
-        child: Container(
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.grey)),
-          ),
-          child: TextField(
-            controller: controller,
-            style: GoogleFonts.poppins(fontSize: 16),
-            decoration: InputDecoration(
-              hintText: hint,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              hintStyle: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.grey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              hint,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1A2035),
               ),
             ),
-          ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: controller,
+              maxLines: maxLines,
+              style: GoogleFonts.poppins(fontSize: 15.5),
+              decoration: InputDecoration(
+                hintText: 'Masukkan $hint',
+                filled: true,
+                fillColor: const Color(0xFFF7F9FC),
+                contentPadding:
+                    const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE1E7EF)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE1E7EF)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: Color(0xFF1572E8), width: 1.4),
+                ),
+                hintStyle: GoogleFonts.poppins(
+                  fontSize: 14.5,
+                  color: const Color(0xFF9AA4B2),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -516,9 +646,6 @@ class _DispensasiPageState extends State<DispensasiPage> {
       case 'Sim':
         file = _sim;
         break;
-      case 'DokumenLain':
-        file = _dokumenLain;
-        break;
     }
 
     return Padding(
@@ -530,41 +657,199 @@ class _DispensasiPageState extends State<DispensasiPage> {
           children: [
             Text(
               label,
-              style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey),
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1A2035),
+              ),
             ),
             const SizedBox(height: 8),
-            GestureDetector(
+            InkWell(
               onTap: () => _pickFile(field),
+              borderRadius: BorderRadius.circular(12),
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFFF7F9FC),
+                  border: Border.all(color: const Color(0xFFE1E7EF)),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    Icon(
+                      file == null
+                          ? Icons.upload_file
+                          : (file.path.toLowerCase().endsWith('.pdf')
+                              ? Icons.picture_as_pdf
+                              : Icons.image_outlined),
+                      color: file == null
+                          ? const Color(0xFF1572E8)
+                          : const Color(0xFF1A2035),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         file != null
                             ? path.basename(file.path)
                             : 'Pilih file (JPG, PNG, PDF)',
                         style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          color: file != null ? Colors.black : Colors.grey,
+                          fontSize: 14.5,
+                          color: file != null
+                              ? const Color(0xFF1A2035)
+                              : const Color(0xFF9AA4B2),
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Icon(
-                      Icons.upload_file,
-                      color: const Color(0xFF1572E8),
-                    ),
+                    if (file != null)
+                      const Icon(
+                        Icons.check_circle,
+                        color: Color(0xFF2CB67D),
+                        size: 20,
+                      ),
                   ],
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSubmitFormatDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Pilih Format Pengiriman',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Pilih format file yang akan dikirimkan.',
+            style: GoogleFonts.poppins(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _handleSubmit('pdf');
+              },
+              child: Text(
+                'PDF',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1572E8),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _handleSubmit('image');
+              },
+              child: Text(
+                'JPG/PNG',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF1572E8),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildOptionalPhotosField(int duration) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: FadeInLeft(
+        duration: Duration(milliseconds: duration),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Foto Pendukung (Opsional)',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1A2035),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F9FC),
+                border: Border.all(color: const Color(0xFFE1E7EF)),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _dokumenLain.isEmpty
+                          ? 'Belum ada foto dipilih'
+                          : '${_dokumenLain.length} foto dipilih',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14.5,
+                        color: _dokumenLain.isEmpty
+                            ? const Color(0xFF9AA4B2)
+                            : const Color(0xFF1A2035),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: _pickOptionalPhotos,
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1572E8),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_dokumenLain.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: List.generate(_dokumenLain.length, (index) {
+                  final file = _dokumenLain[index];
+                  return Chip(
+                    label: Text(
+                      path.basename(file.path),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    deleteIcon: const Icon(Icons.close, size: 18),
+                    onDeleted: () {
+                      setState(() {
+                        _dokumenLain.removeAt(index);
+                      });
+                    },
+                  );
+                }),
+              ),
+            ],
           ],
         ),
       ),

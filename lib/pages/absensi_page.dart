@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:indocement_apk/service/api_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // Import halaman AbsensiLapanganScreen
 
@@ -22,11 +25,57 @@ class _EventMenuPageState extends State<EventMenuPage> {
   bool _eventLoading = true;
   bool _eventError = false;
   final Map<int, String> _placeNames = {}; // key: index, value: place name
+  final Map<int, int> _absenCountByEvent = {}; // key: eventId, value: count (hari ini)
+  bool _absenLoading = false;
+  final FlutterLocalNotificationsPlugin _localNotif = FlutterLocalNotificationsPlugin();
+  bool _notifInitialized = false;
+  Set<int> _lastEventIds = {};
+  Map<int, int> _lastAbsenSnapshot = {};
 
   @override
   void initState() {
     super.initState();
+    _initLocalNotif();
     _loadIdEmployeeAndEvents();
+  }
+
+  Future<void> _initLocalNotif() async {
+    if (_notifInitialized) return;
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await _localNotif.initialize(initializationSettings);
+    _notifInitialized = true;
+
+    // Android 13+ needs notification permission
+    final status = await Permission.notification.status;
+    if (!status.isGranted) {
+      await Permission.notification.request();
+    }
+  }
+
+  Future<void> _showLocalNotif(String title, String body) async {
+    if (!_notifInitialized) {
+      await _initLocalNotif();
+    }
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'absensi_channel_id',
+      'Absensi Notifications',
+      channelDescription: 'Notifikasi untuk update data absensi',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+    final id = DateTime.now().millisecondsSinceEpoch.remainder(100000);
+    await _localNotif.show(
+      id,
+      title,
+      body,
+      platformChannelSpecifics,
+    );
   }
 
   Future<void> _loadIdEmployeeAndEvents() async {
@@ -44,6 +93,8 @@ class _EventMenuPageState extends State<EventMenuPage> {
           _eventList = events;
           _eventLoading = false;
         });
+        _notifyIfEventChanged(events);
+        await _loadAbsensiStatus();
       } else {
         setState(() {
           _eventList = [];
@@ -68,7 +119,7 @@ class _EventMenuPageState extends State<EventMenuPage> {
       final List<dynamic> data = response.data is String
           ? json.decode(response.data)
           : response.data;
-      final today = DateTime.now();
+      final now = DateTime.now();
       return data.where((event) {
         final employees = event['Employees'] as List<dynamic>?;
         if (employees == null) return false;
@@ -77,12 +128,11 @@ class _EventMenuPageState extends State<EventMenuPage> {
         final employeeIds = employees.map((e) => e.toString()).toList();
         if (!employeeIds.contains(idEmployee.toString())) return false;
 
-        // Filter tanggal selesai >= hari ini
-        final tglSelesaiStr = event['TanggalSelesai']?.toString();
-        if (tglSelesaiStr == null) return false;
-        final tglSelesai = DateTime.tryParse(tglSelesaiStr.split('T').first);
-        if (tglSelesai == null) return false;
-        if (tglSelesai.isBefore(DateTime(today.year, today.month, today.day))) return false;
+        // Filter event berdasarkan rentang waktu (tanggal/jam jika tersedia)
+        final tglMulai = _parseEventDateTime(event['TanggalMulai']);
+        final tglSelesai = _parseEventDateTime(event['TanggalSelesai']);
+        if (tglMulai != null && now.isBefore(tglMulai)) return false;
+        if (tglSelesai != null && now.isAfter(tglSelesai)) return false;
 
         return true;
       }).map<Map<String, dynamic>>((event) => {
@@ -92,10 +142,94 @@ class _EventMenuPageState extends State<EventMenuPage> {
         'long': event['Longitude'],
         'tglMulai': event['TanggalMulai'],
         'tglSelesai': event['TanggalSelesai'],
+        'jamMasuk': event['JamMasuk'],
+        'jamKeluar': event['JamKeluar'],
+        'tglMulaiDt': _parseEventDateTime(event['TanggalMulai']),
+        'tglSelesaiDt': _parseEventDateTime(event['TanggalSelesai']),
       }).toList();
     } else {
       throw Exception('Gagal memuat event');
     }
+  }
+
+  void _notifyIfEventChanged(List<Map<String, dynamic>> events) {
+    final currentIds = events
+        .map((e) => e['id'] is int ? e['id'] as int : int.tryParse(e['id'].toString()) ?? 0)
+        .where((id) => id > 0)
+        .toSet();
+    if (_lastEventIds.isEmpty && currentIds.isNotEmpty) {
+      _showLocalNotif('Event absensi tersedia', 'Ada ${currentIds.length} event untuk absensi.');
+    } else if (!setEquals(_lastEventIds, currentIds)) {
+      _showLocalNotif('Event absensi diperbarui', 'Daftar event absensi telah berubah.');
+    }
+    _lastEventIds = currentIds;
+  }
+
+  Future<void> _loadAbsensiStatus() async {
+    if (_idEmployee == null) return;
+    setState(() {
+      _absenLoading = true;
+    });
+    try {
+      final response = await ApiService.get(
+        'http://103.31.235.237:5555/api/Absensi',
+        headers: {'accept': 'text/plain'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = response.data is String
+            ? json.decode(response.data)
+            : response.data;
+        final today = DateTime.now();
+        final dateOnly = DateTime(today.year, today.month, today.day);
+        final Map<int, int> temp = {};
+        for (final absen in data) {
+          if (absen['IdEmployee'] != _idEmployee) continue;
+          final createdAtStr = absen['CreatedAt']?.toString();
+          if (createdAtStr == null) continue;
+          final createdAt = DateTime.tryParse(createdAtStr);
+          if (createdAt == null) continue;
+          final createdDate = DateTime(createdAt.year, createdAt.month, createdAt.day);
+          if (createdDate != dateOnly) continue;
+          final eventId = absen['EventId'];
+          final parsedEventId = eventId is int ? eventId : int.tryParse(eventId.toString());
+          if (parsedEventId == null) continue;
+          temp[parsedEventId] = (temp[parsedEventId] ?? 0) + 1;
+        }
+        setState(() {
+          _absenCountByEvent
+            ..clear()
+            ..addAll(temp);
+        });
+        _notifyIfAbsensiChanged(temp);
+      }
+    } catch (_) {
+      // Biarkan status kosong jika gagal
+    } finally {
+      if (mounted) {
+        setState(() {
+          _absenLoading = false;
+        });
+      }
+    }
+  }
+
+  void _notifyIfAbsensiChanged(Map<int, int> current) {
+    if (_lastAbsenSnapshot.isEmpty && current.isNotEmpty) {
+      _showLocalNotif('Status absensi tersedia', 'Status absensi Anda sudah dimuat.');
+    } else if (!mapEquals(_lastAbsenSnapshot, current)) {
+      _showLocalNotif('Status absensi diperbarui', 'Ada perubahan status absensi Anda.');
+    }
+    _lastAbsenSnapshot = Map<int, int>.from(current);
+  }
+
+  DateTime? _parseEventDateTime(dynamic raw) {
+    if (raw == null) return null;
+    final str = raw.toString();
+    final parsed = DateTime.tryParse(str);
+    if (parsed != null) return parsed;
+    // Fallback: tanggal saja "YYYY-MM-DD"
+    final dateOnly = DateTime.tryParse(str.split('T').first);
+    return dateOnly;
   }
 
   // Fungsi untuk dapatkan nama tempat dari lat long
@@ -179,6 +313,19 @@ class _EventMenuPageState extends State<EventMenuPage> {
                               itemCount: _eventList.length,
                               itemBuilder: (context, index) {
                                 final event = _eventList[index];
+                                final eventId = event['id'] is int
+                                    ? event['id']
+                                    : int.tryParse(event['id'].toString()) ?? 0;
+                                final absenCount = _absenCountByEvent[eventId] ?? 0;
+                                final statusLabel = absenCount == 0
+                                    ? 'Belum Absen'
+                                    : (absenCount == 1 ? 'Sudah Absen Masuk' : 'Sudah Absen Keluar');
+                                final statusColor = absenCount == 0
+                                    ? const Color(0xFF9E9E9E)
+                                    : (absenCount == 1 ? const Color(0xFF1E88E5) : const Color(0xFF2E7D32));
+                                final statusBg = absenCount == 0
+                                    ? const Color(0xFFF2F2F2)
+                                    : (absenCount == 1 ? const Color(0xFFE3F2FD) : const Color(0xFFE8F5E9));
                                 // Ambil nama tempat jika belum ada
                                 if (_placeNames[index] == null &&
                                     event['lat'] != null &&
@@ -210,9 +357,9 @@ class _EventMenuPageState extends State<EventMenuPage> {
                                                 borderRadius: BorderRadius.circular(14),
                                               ),
                                               padding: const EdgeInsets.all(14),
-                                              child: const Icon(Icons.how_to_reg, color: Color(0xFF16A085), size: 38),
+                                              child: const Icon(Icons.how_to_reg, color: Color(0xFF16A085), size: 36),
                                             ),
-                                            const SizedBox(width: 18),
+                                            const SizedBox(width: 16),
                                             Expanded(
                                               child: Column(
                                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -221,11 +368,53 @@ class _EventMenuPageState extends State<EventMenuPage> {
                                                     event['nama'] ?? '-',
                                                     style: const TextStyle(
                                                       fontWeight: FontWeight.bold,
-                                                      fontSize: 21,
+                                                      fontSize: 20,
                                                       color: Color(0xFF1572E8),
                                                     ),
                                                   ),
-                                                  const SizedBox(height: 10),
+                                                  const SizedBox(height: 6),
+                                                  Row(
+                                                    children: [
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                        decoration: BoxDecoration(
+                                                          color: statusBg,
+                                                          borderRadius: BorderRadius.circular(20),
+                                                          border: Border.all(color: statusColor, width: 1),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Container(
+                                                              width: 8,
+                                                              height: 8,
+                                                              decoration: BoxDecoration(
+                                                                color: statusColor,
+                                                                shape: BoxShape.circle,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(width: 6),
+                                                            Text(
+                                                              statusLabel,
+                                                              style: TextStyle(
+                                                                color: statusColor,
+                                                                fontWeight: FontWeight.w600,
+                                                                fontSize: 12,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      if (_absenLoading) ...[
+                                                        const SizedBox(width: 10),
+                                                        const SizedBox(
+                                                          width: 14,
+                                                          height: 14,
+                                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                                        ),
+                                                      ],
+                                                    ],
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -279,6 +468,17 @@ class _EventMenuPageState extends State<EventMenuPage> {
                                                     ),
                                                   ],
                                                 ),
+                                                const SizedBox(height: 8),
+                                                Row(
+                                                  children: [
+                                                    const Icon(Icons.schedule, size: 18, color: Color(0xFF5E35B1)),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      'Jam: ${event['jamMasuk'] ?? '-'} - ${event['jamKeluar'] ?? '-'}',
+                                                      style: const TextStyle(fontSize: 15, color: Colors.black87),
+                                                    ),
+                                                  ],
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -296,15 +496,19 @@ class _EventMenuPageState extends State<EventMenuPage> {
                                               elevation: 3,
                                             ),
                                             icon: const Icon(Icons.how_to_reg, color: Colors.white),
-                                            label: const Text(
-                                              'Absen Sekarang',
-                                              style: TextStyle(
+                                            label: Text(
+                                              absenCount >= 2
+                                                  ? 'Absensi Selesai'
+                                                  : (absenCount == 0 ? 'Absen Masuk' : 'Absen Keluar'),
+                                              style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 16,
                                                 color: Colors.white,
                                               ),
                                             ),
-                                            onPressed: () {
+                                            onPressed: absenCount >= 2
+                                                ? null
+                                                : () {
                                               double lat = 0.0;
                                               double long = 0.0;
                                               int eventId = event['id'] is int
@@ -334,6 +538,10 @@ class _EventMenuPageState extends State<EventMenuPage> {
                                                     kantorLat: lat,
                                                     kantorLng: long,
                                                     eventId: eventId, // kirim event id ke halaman selanjutnya
+                                                    eventMulai: event['tglMulaiDt'] as DateTime?,
+                                                    eventSelesai: event['tglSelesaiDt'] as DateTime?,
+                                                    eventJamMasuk: event['jamMasuk']?.toString(),
+                                                    eventJamKeluar: event['jamKeluar']?.toString(),
                                                   ),
                                                 ),
                                               );
