@@ -47,7 +47,7 @@ class _TambahDataPasutriPageState extends State<TambahDataPasutriPage> {
 
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Bpjs',
+        'http://34.50.112.226:5555/api/Bpjs',
         params: {'idEmployee': idEmployee},
       );
 
@@ -202,7 +202,7 @@ class _TambahDataPasutriPageState extends State<TambahDataPasutriPage> {
 
       // Kirim data ke API dengan metode PUT
       final uploadResponse = await ApiService.put(
-        'http://103.31.235.237:5555/api/Bpjs/upload/$id',
+        'http://34.50.112.226:5555/api/Bpjs/upload/$id',
         data: formData,
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -315,7 +315,7 @@ class _TambahDataPasutriPageState extends State<TambahDataPasutriPage> {
       return const SizedBox.shrink();
     }
     // Jika url hanya path, tambahkan base URL
-    final fullUrl = url.startsWith('http') ? url : 'http://103.31.235.237:5555$url';
+    final fullUrl = url.startsWith('http') ? url : 'http://34.50.112.226:5555$url';
 
     return Card(
       elevation: 4,

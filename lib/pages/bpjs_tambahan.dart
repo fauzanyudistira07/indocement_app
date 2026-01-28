@@ -120,7 +120,7 @@ class _BPJSTambahanPageState extends State<BPJSTambahanPage> {
 
       // Pakai ApiService.post agar otomatis pakai token
       final response = await ApiService.post(
-        "http://103.31.235.237:5555/api/Bpjs/upload",
+        "http://34.50.112.226:5555/api/Bpjs/upload",
         data: formData,
       );
 
@@ -329,7 +329,7 @@ class _BPJSTambahanPageState extends State<BPJSTambahanPage> {
     }
 
     final String fileUrl =
-        'http://103.31.235.237:5555/api/Bpjs/generate-salary-deduction/$idEmployee/$selectedRelationship';
+        'http://34.50.112.226:5555/api/Bpjs/generate-salary-deduction/$idEmployee/$selectedRelationship';
 
     try {
       showDialog(
@@ -351,7 +351,7 @@ class _BPJSTambahanPageState extends State<BPJSTambahanPage> {
       );
 
 final response = await ApiService.get(
-  'http://103.31.235.237:5555/api/Bpjs/generate-salary-deduction/$idEmployee/$selectedRelationship',
+  'http://34.50.112.226:5555/api/Bpjs/generate-salary-deduction/$idEmployee/$selectedRelationship',
   headers: {
     "accept": "/", // sesuai cURL
   },

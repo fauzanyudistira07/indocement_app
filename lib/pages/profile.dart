@@ -50,7 +50,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Employees/$employeeId',
+        'http://34.50.112.226:5555/api/Employees/$employeeId',
         headers: {'Content-Type': 'application/json'},
       );
       print('ProfilePage: response status=${response.statusCode}');
@@ -67,7 +67,7 @@ class _ProfilePageState extends State<ProfilePage> {
           // Tambahkan URL dasar jika UrlFoto adalah path relatif
           if (data['UrlFoto'] != null && data['UrlFoto'].isNotEmpty) {
             if (data['UrlFoto'].startsWith('/')) {
-              _urlFoto = 'http://103.31.235.237:5555${data['UrlFoto']}';
+              _urlFoto = 'http://34.50.112.226:5555${data['UrlFoto']}';
             } else {
               _urlFoto = data['UrlFoto'];
             }

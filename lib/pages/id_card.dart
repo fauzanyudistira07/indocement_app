@@ -177,7 +177,7 @@ class _IdCardUploadPageState extends State<IdCardUploadPage> {
       });
 
       final response = await ApiService.post(
-        'http://103.31.235.237:5555/api/IdCards/upload',
+        'http://34.50.112.226:5555/api/IdCards/upload',
         data: formData,
         headers: {'accept': 'text/plain'},
       );

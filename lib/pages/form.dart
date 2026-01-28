@@ -378,7 +378,7 @@ class _KeluhanPageState extends State<KeluhanPage> {
       }
 
       final response = await ApiService.post(
-        'http://103.31.235.237:5555/api/keluhans',
+        'http://34.50.112.226:5555/api/keluhans',
         data: formData,
         headers: {'accept': 'application/json'},
       );

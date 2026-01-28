@@ -69,7 +69,7 @@ class _ScheduleShiftPageState extends State<ScheduleShiftPage>
       });
 
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/JadwalShift',
+        'http://34.50.112.226:5555/api/JadwalShift',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -342,7 +342,7 @@ class _ScheduleShiftPageState extends State<ScheduleShiftPage>
       _userIdEmployee = idEmployee;
 
       final userResponse = await ApiService.get(
-        'http://103.31.235.237:5555/api/User',
+        'http://34.50.112.226:5555/api/User',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -371,7 +371,7 @@ class _ScheduleShiftPageState extends State<ScheduleShiftPage>
       print('Active Karyawan IdEmployee: $activeKaryawanIds');
 
       final employeeResponse = await ApiService.get(
-        'http://103.31.235.237:5555/api/Employees/$idEmployee',
+        'http://34.50.112.226:5555/api/Employees/$idEmployee',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -407,7 +407,7 @@ class _ScheduleShiftPageState extends State<ScheduleShiftPage>
       }
 
       final allEmployeesResponse = await ApiService.get(
-        'http://103.31.235.237:5555/api/Employees',
+        'http://34.50.112.226:5555/api/Employees',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
@@ -571,7 +571,7 @@ class _ScheduleShiftPageState extends State<ScheduleShiftPage>
         try {
           for (var pair in requestBody) {
             final response = await ApiService.post(
-              'http://103.31.235.237:5555/api/TukarSchedule',
+              'http://34.50.112.226:5555/api/TukarSchedule',
               data: pair,
               headers: {
                 'Accept': 'application/json',

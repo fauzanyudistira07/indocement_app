@@ -90,7 +90,7 @@ class _BeasiswaPageState extends State<BeasiswaPage> {
 
       // Fetch employee data pakai ApiService
       final employeeResponse = await ApiService.get(
-        'http://103.31.235.237:5555/api/Employees/$idEmployee',
+        'http://34.50.112.226:5555/api/Employees/$idEmployee',
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -108,7 +108,7 @@ class _BeasiswaPageState extends State<BeasiswaPage> {
 
         // Fetch unit data pakai ApiService
         final unitResponse = await ApiService.get(
-          'http://103.31.235.237:5555/api/Units',
+          'http://34.50.112.226:5555/api/Units',
           headers: {'Content-Type': 'application/json'},
         );
 
@@ -590,7 +590,7 @@ class _BeasiswaPageState extends State<BeasiswaPage> {
         _showLoading(this.context);
 
         final response = await ApiService.post(
-          'http://103.31.235.237:5555/api/Beasiswa',
+          'http://34.50.112.226:5555/api/Beasiswa',
           data: jsonEncode(data),
           headers: {
             'Accept': 'application/json',
@@ -1246,7 +1246,7 @@ class _BeasiswaPageState extends State<BeasiswaPage> {
                                         ),
                                       );
 final response = await ApiService.post(
-  'http://103.31.235.237:5555/api/Beasiswa/generate-document',
+  'http://34.50.112.226:5555/api/Beasiswa/generate-document',
   data: data,
   headers: {
     'accept': '*/*',
@@ -1673,7 +1673,7 @@ Navigator.of(context).pop();
                                     );
 
           final response = await ApiService.post(
-            'http://103.31.235.237:5555/api/Beasiswa',
+            'http://34.50.112.226:5555/api/Beasiswa',
             data: formData,
             headers: {
               'accept': '*/*',
@@ -1932,7 +1932,7 @@ Navigator.of(context).pop();
 
   try {
     final response = await ApiService.post(
-      'http://103.31.235.237:5555/api/Beasiswa',
+      'http://34.50.112.226:5555/api/Beasiswa',
       data: formData,
     );
 

@@ -41,7 +41,7 @@ class _UangDukaPageState extends State<UangDukaPage> {
 
   Future<void> _fetchEmployeeData(int id) async {
     try {
-      final response = await ApiService.get('http://103.31.235.237:5555/api/Employees');
+      final response = await ApiService.get('http://34.50.112.226:5555/api/Employees');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data is String ? jsonDecode(response.data) : response.data;
         final emp = data.firstWhere(
@@ -257,7 +257,7 @@ class _UangDukaPageState extends State<UangDukaPage> {
       });
 
       final response = await ApiService.post(
-        'http://103.31.235.237:5555/api/UangDuka/upload',
+        'http://34.50.112.226:5555/api/UangDuka/upload',
         data: formData,
         headers: {
           'Content-Type': 'multipart/form-data',

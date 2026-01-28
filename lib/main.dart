@@ -6,11 +6,7 @@ import 'package:indocement_apk/pages/master.dart';
 import 'package:indocement_apk/pages/login.dart';
 import 'package:indocement_apk/pages/register.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:indocement_apk/pages/error.dart';
-import 'package:indocement_apk/service/api_service.dart';
-import 'dart:convert';
-import 'dart:async';
 
 void main() {
   runApp(const MyApp());
@@ -81,41 +77,6 @@ Route<dynamic> _onGenerateRoute(RouteSettings settings) {
   }
 }
 
-// Tambahkan di atas _SplashScreenState
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-Future<void> initNotif(BuildContext context) async {
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(
-    initializationSettings,
-    onDidReceiveNotificationResponse: (NotificationResponse response) async {
-      Navigator.of(context).pushNamedAndRemoveUntil('/master', (route) => false);
-    },
-  );
-}
-
-Future<void> showNotif(String title, String body) async {
-  const AndroidNotificationDetails androidPlatformChannelSpecifics =
-      AndroidNotificationDetails(
-    'inbox_channel_id',
-    'Inbox Notifications',
-    channelDescription: 'Notifikasi untuk pesan Inbox',
-    importance: Importance.max,
-    priority: Priority.high,
-  );
-  const NotificationDetails platformChannelSpecifics =
-      NotificationDetails(android: androidPlatformChannelSpecifics);
-  await flutterLocalNotificationsPlugin.show(
-    0,
-    title,
-    body,
-    platformChannelSpecifics,
-    payload: 'inbox',
-  );
-}
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -129,9 +90,6 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeAnimation;
   late AnimationController _scaleController;
   late Animation<double> _scaleAnimation;
-
-  Timer? _notifTimer;
-  Set<String> _shownNotifIds = {};
 
   @override
   void initState() {
@@ -164,56 +122,10 @@ class _SplashScreenState extends State<SplashScreen>
         });
       });
     });
-    initNotif(context);
-    _startNotifPolling();
-  }
-
-  void _startNotifPolling() async {
-    final prefs = await SharedPreferences.getInstance();
-    final employeeId = prefs.getInt('idEmployee');
-    if (employeeId == null) return;
-    _shownNotifIds = (prefs.getStringList('shownNotifIds') ?? []).toSet();
-
-    _notifTimer = Timer.periodic(const Duration(minutes: 1), (_) async {
-      try {
-        final response = await ApiService.get(
-          'http://103.31.235.237:5555/api/Notifications',
-          headers: {'Accept': 'application/json'},
-        );
-        if (response.statusCode == 200) {
-          final data = response.data is String ? jsonDecode(response.data) : response.data;
-          final List<Map<String, dynamic>> notifications = (data as List)
-              .cast<Map<String, dynamic>>()
-              .where((notif) => notif['IdEmployee']?.toString() == employeeId.toString())
-              .toList();
-
-          // Cek notifikasi baru yang belum pernah ditampilkan (semua source)
-          final allIds = notifications.map((n) => n['Id'].toString()).toSet();
-          final newIds = allIds.difference(_shownNotifIds);
-
-          if (newIds.isNotEmpty) {
-            for (final notif in notifications) {
-              final id = notif['Id']?.toString();
-              if (id == null || !newIds.contains(id)) continue;
-              final title = notif['Source']?.toString() ?? 'Notifikasi';
-              final status = notif['Status']?.toString() ?? '-';
-              final message = (notif['Message'] ?? notif['Keterangan'] ?? notif['Title'] ?? '').toString();
-              final body = message.isNotEmpty ? '$status - $message' : 'Status: $status';
-              await showNotif(title, body);
-              _shownNotifIds.add(id);
-            }
-            await prefs.setStringList('shownNotifIds', _shownNotifIds.toList());
-          }
-        }
-      } catch (e) {
-        // Optional: print('Polling notif error: $e');
-      }
-    });
   }
 
   @override
   void dispose() {
-    _notifTimer?.cancel();
     _fadeController.dispose();
     _scaleController.dispose();
     super.dispose();

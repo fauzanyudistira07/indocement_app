@@ -419,7 +419,7 @@ class _DispensasiPageState extends State<DispensasiPage> {
       _showLoading(context);
 
       final response = await ApiService.post(
-        'http://103.31.235.237:5555/api/Dispensasi',
+        'http://34.50.112.226:5555/api/Dispensasi',
         data: formData,
         headers: {
           'Accept': 'application/json',

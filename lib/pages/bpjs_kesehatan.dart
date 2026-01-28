@@ -374,7 +374,7 @@ class _MenuPageState extends State<MenuPage>
 
 Future<bool> checkBpjsData(int idEmployee) async {
   try {
-    final response = await ApiService.get('http://103.31.235.237:5555/api/Bpjs/$idEmployee');
+    final response = await ApiService.get('http://34.50.112.226:5555/api/Bpjs/$idEmployee');
     if (response.statusCode == 200) {
       final data = response.data is String
           ? jsonDecode(response.data)

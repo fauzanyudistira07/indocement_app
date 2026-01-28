@@ -81,7 +81,7 @@ class _ChatPageState extends State<ChatPage> {
           'Initializing SignalR for room: $roomId (Attempt ${_reconnectAttempts + 1})');
       _hubConnection = HubConnectionBuilder()
           .withUrl(
-            'http://103.31.235.237:5555/chatHub',
+            'http://34.50.112.226:5555/chatHub',
             options: HttpConnectionOptions(
               requestTimeout: 30000,
               transport: HttpTransportType.WebSockets,
@@ -172,7 +172,7 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final response = await retry(
         () => ApiService.post(
-          'http://103.31.235.237:5555/api/ChatMessages/join-room',
+          'http://34.50.112.226:5555/api/ChatMessages/join-room',
           data: {'roomId': roomId, 'userId': idEmployee},
           contentType: 'application/json',
         ),
@@ -381,7 +381,7 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final response = await retry(
         () => ApiService.put(
-          'http://103.31.235.237:5555/api/ChatMessages/update-status/$messageId',
+          'http://34.50.112.226:5555/api/ChatMessages/update-status/$messageId',
           data: {'status': correctStatus},
         ),
         maxAttempts: 3,
@@ -520,7 +520,7 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final response = await retry(
         () => ApiService.get(
-          'http://103.31.235.237:5555/api/ChatMessages/room/$roomId',
+          'http://34.50.112.226:5555/api/ChatMessages/room/$roomId',
           params: {'currentUserId': idEmployee.toString()},
         ),
         maxAttempts: 3,
@@ -696,7 +696,7 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final response = await retry(
         () => ApiService.get(
-          'http://103.31.235.237:5555/api/Konsultasis/employee/$idEmployee',
+          'http://34.50.112.226:5555/api/Konsultasis/employee/$idEmployee',
         ),
         maxAttempts: 3,
         delayFactor: const Duration(seconds: 1),
@@ -738,7 +738,7 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final response = await retry(
         () => ApiService.post(
-          'http://103.31.235.237:5555/api/Konsultasis/create-consultation',
+          'http://34.50.112.226:5555/api/Konsultasis/create-consultation',
           data: {'idEmployee': idEmployee},
           contentType: 'application/json',
         ),
@@ -814,7 +814,7 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final response = await retry(
         () => ApiService.get(
-          'http://103.31.235.237:5555/api/ChatMessages/room/$roomId',
+          'http://34.50.112.226:5555/api/ChatMessages/room/$roomId',
           params: {'currentUserId': idEmployee.toString()},
         ),
         maxAttempts: 3,
@@ -986,7 +986,7 @@ class _ChatPageState extends State<ChatPage> {
       try {
         final response = await retry(
           () => ApiService.post(
-            'http://103.31.235.237:5555/api/ChatMessages/send-message',
+            'http://34.50.112.226:5555/api/ChatMessages/send-message',
             data: {
               'roomId': roomId,
               'senderId': idEmployee,
@@ -1066,7 +1066,7 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final response = await retry(
         () => ApiService.put(
-          'http://103.31.235.237:5555/api/ChatMessages/update-status/$messageId',
+          'http://34.50.112.226:5555/api/ChatMessages/update-status/$messageId',
           data: {'status': status},
         ),
         maxAttempts: 3,
@@ -1137,7 +1137,7 @@ class _ChatPageState extends State<ChatPage> {
               backgroundImage: (opponent != null &&
                       opponent!['ProfilePhoto'] != null)
                   ? NetworkImage(
-                      'http://103.31.235.237:5555${opponent!['ProfilePhoto']}')
+                      'http://34.50.112.226:5555${opponent!['ProfilePhoto']}')
                   : null,
               child: (opponent == null || opponent!['ProfilePhoto'] == null)
                   ? const Icon(Icons.person, color: Colors.grey, size: 28)

@@ -44,7 +44,7 @@ class _InternalRecruitmentPageState extends State<InternalRecruitmentPage> {
     setState(() => _isLoading = true);
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Recruitment/lowongan',
+        'http://34.50.112.226:5555/api/Recruitment/lowongan',
         headers: {'accept': 'application/json'},
       );
       if (response.statusCode == 200) {
@@ -201,7 +201,7 @@ class _InternalRecruitmentPageState extends State<InternalRecruitmentPage> {
       });
 
       final response = await ApiService.post(
-        'http://103.31.235.237:5555/api/Recruitment/upload',
+        'http://34.50.112.226:5555/api/Recruitment/upload',
         data: formDataToSend,
         headers: {
           'accept': '*/*',
@@ -233,7 +233,7 @@ class _InternalRecruitmentPageState extends State<InternalRecruitmentPage> {
 
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Recruitment/pengumuman-seleksi',
+        'http://34.50.112.226:5555/api/Recruitment/pengumuman-seleksi',
         headers: {'accept': 'application/json'},
       );
       if (response.statusCode == 200) {
@@ -271,7 +271,7 @@ class _InternalRecruitmentPageState extends State<InternalRecruitmentPage> {
 
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Recruitment/jadwal-wawancara',
+        'http://34.50.112.226:5555/api/Recruitment/jadwal-wawancara',
         headers: {'accept': 'application/json'},
       );
       if (response.statusCode == 200) {

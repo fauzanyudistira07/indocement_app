@@ -49,7 +49,7 @@ class _MasaKerjaPageState extends State<MasaKerjaPage> {
       }
 
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Employees',
+        'http://34.50.112.226:5555/api/Employees',
         headers: {'accept': 'application/json'},
       );
 
@@ -116,7 +116,7 @@ class _MasaKerjaPageState extends State<MasaKerjaPage> {
       }
 
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Notifications/Anniversary',
+        'http://34.50.112.226:5555/api/Notifications/Anniversary',
         headers: {'accept': 'application/json'},
       );
 

@@ -111,7 +111,7 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
 
   Future<void> _fetchEmployeeData(int id) async {
     try {
-      final response = await ApiService.get('http://103.31.235.237:5555/api/Employees');
+      final response = await ApiService.get('http://34.50.112.226:5555/api/Employees');
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
         final emp = data.firstWhere(
@@ -307,7 +307,7 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
     if (idSection == null) return;
 
     try {
-      final response = await ApiService.get('http://103.31.235.237:5555/api/Units');
+      final response = await ApiService.get('http://34.50.112.226:5555/api/Units');
       if (response.statusCode == 200) {
         final List<dynamic> units = response.data;
 
@@ -338,7 +338,7 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
   Future<int> _countAbsenHariIni() async {
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Absensi',
+        'http://34.50.112.226:5555/api/Absensi',
         headers: {'accept': 'text/plain'},
       );
       if (response.statusCode == 200) {
@@ -540,7 +540,7 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
       });
 
       final response = await ApiService.post(
-        'http://103.31.235.237:5555/api/Absensi/upload',
+        'http://34.50.112.226:5555/api/Absensi/upload',
         data: formData,
         headers: {'accept': 'text/plain'},
       );
@@ -781,7 +781,7 @@ class _AbsensiLapanganScreenState extends State<AbsensiLapanganScreen> {
                                         ? ClipRRect(
                                             borderRadius: BorderRadius.circular(12),
                                             child: Image.network(
-                                              'http://103.31.235.237:5555${_employeeData!['UrlFoto']}',
+                                              'http://34.50.112.226:5555${_employeeData!['UrlFoto']}',
                                               fit: BoxFit.cover,
                                               width: 56,
                                               height: 56,

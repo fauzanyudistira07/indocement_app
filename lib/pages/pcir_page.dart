@@ -46,7 +46,7 @@ class _PCIRPageState extends State<PCIRPage>
     });
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/FamilyData',
+        'http://34.50.112.226:5555/api/FamilyData',
         headers: {'Content-Type': 'application/json'},
       );
       if (response.statusCode == 200) {

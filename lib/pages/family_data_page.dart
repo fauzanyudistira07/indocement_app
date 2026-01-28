@@ -50,7 +50,7 @@ class _FamilyDataPageState extends State<FamilyDataPage> {
     try {
       final stopwatch = Stopwatch()..start();
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/FamilyEmployees',
+        'http://34.50.112.226:5555/api/FamilyEmployees',
         params: {'IdEmployee': _employeeId},
         headers: {'Content-Type': 'application/json'},
       );

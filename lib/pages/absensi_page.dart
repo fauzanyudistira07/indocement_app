@@ -6,9 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:indocement_apk/service/api_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 // Import halaman AbsensiLapanganScreen
 
@@ -27,55 +24,11 @@ class _EventMenuPageState extends State<EventMenuPage> {
   final Map<int, String> _placeNames = {}; // key: index, value: place name
   final Map<int, int> _absenCountByEvent = {}; // key: eventId, value: count (hari ini)
   bool _absenLoading = false;
-  final FlutterLocalNotificationsPlugin _localNotif = FlutterLocalNotificationsPlugin();
-  bool _notifInitialized = false;
-  Set<int> _lastEventIds = {};
-  Map<int, int> _lastAbsenSnapshot = {};
 
   @override
   void initState() {
     super.initState();
-    _initLocalNotif();
     _loadIdEmployeeAndEvents();
-  }
-
-  Future<void> _initLocalNotif() async {
-    if (_notifInitialized) return;
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-    await _localNotif.initialize(initializationSettings);
-    _notifInitialized = true;
-
-    // Android 13+ needs notification permission
-    final status = await Permission.notification.status;
-    if (!status.isGranted) {
-      await Permission.notification.request();
-    }
-  }
-
-  Future<void> _showLocalNotif(String title, String body) async {
-    if (!_notifInitialized) {
-      await _initLocalNotif();
-    }
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'absensi_channel_id',
-      'Absensi Notifications',
-      channelDescription: 'Notifikasi untuk update data absensi',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
-    final id = DateTime.now().millisecondsSinceEpoch.remainder(100000);
-    await _localNotif.show(
-      id,
-      title,
-      body,
-      platformChannelSpecifics,
-    );
   }
 
   Future<void> _loadIdEmployeeAndEvents() async {
@@ -93,7 +46,6 @@ class _EventMenuPageState extends State<EventMenuPage> {
           _eventList = events;
           _eventLoading = false;
         });
-        _notifyIfEventChanged(events);
         await _loadAbsensiStatus();
       } else {
         setState(() {
@@ -111,7 +63,7 @@ class _EventMenuPageState extends State<EventMenuPage> {
 
   Future<List<Map<String, dynamic>>> fetchEvents(int idEmployee) async {
     final response = await ApiService.get(
-      'http://103.31.235.237:5555/api/Event',
+      'http://34.50.112.226:5555/api/Event',
       headers: {'accept': 'text/plain'},
     );
     print('Data event dari API: ${response.data}');
@@ -152,19 +104,6 @@ class _EventMenuPageState extends State<EventMenuPage> {
     }
   }
 
-  void _notifyIfEventChanged(List<Map<String, dynamic>> events) {
-    final currentIds = events
-        .map((e) => e['id'] is int ? e['id'] as int : int.tryParse(e['id'].toString()) ?? 0)
-        .where((id) => id > 0)
-        .toSet();
-    if (_lastEventIds.isEmpty && currentIds.isNotEmpty) {
-      _showLocalNotif('Event absensi tersedia', 'Ada ${currentIds.length} event untuk absensi.');
-    } else if (!setEquals(_lastEventIds, currentIds)) {
-      _showLocalNotif('Event absensi diperbarui', 'Daftar event absensi telah berubah.');
-    }
-    _lastEventIds = currentIds;
-  }
-
   Future<void> _loadAbsensiStatus() async {
     if (_idEmployee == null) return;
     setState(() {
@@ -172,7 +111,7 @@ class _EventMenuPageState extends State<EventMenuPage> {
     });
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Absensi',
+        'http://34.50.112.226:5555/api/Absensi',
         headers: {'accept': 'text/plain'},
       );
       if (response.statusCode == 200) {
@@ -200,7 +139,6 @@ class _EventMenuPageState extends State<EventMenuPage> {
             ..clear()
             ..addAll(temp);
         });
-        _notifyIfAbsensiChanged(temp);
       }
     } catch (_) {
       // Biarkan status kosong jika gagal
@@ -211,15 +149,6 @@ class _EventMenuPageState extends State<EventMenuPage> {
         });
       }
     }
-  }
-
-  void _notifyIfAbsensiChanged(Map<int, int> current) {
-    if (_lastAbsenSnapshot.isEmpty && current.isNotEmpty) {
-      _showLocalNotif('Status absensi tersedia', 'Status absensi Anda sudah dimuat.');
-    } else if (!mapEquals(_lastAbsenSnapshot, current)) {
-      _showLocalNotif('Status absensi diperbarui', 'Ada perubahan status absensi Anda.');
-    }
-    _lastAbsenSnapshot = Map<int, int>.from(current);
   }
 
   DateTime? _parseEventDateTime(dynamic raw) {

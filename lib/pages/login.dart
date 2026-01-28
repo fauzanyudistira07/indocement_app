@@ -126,7 +126,7 @@ class _LoginState extends State<Login> {
     try {
       _showLoading(context);
       final response = await http.get(
-        Uri.parse('http://103.31.235.237:5555/api/Employees?email=$email'),
+        Uri.parse('http://34.50.112.226:5555/api/Employees?email=$email'),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 10));
 
@@ -200,7 +200,7 @@ class _LoginState extends State<Login> {
       _showLoading(context);
 
       final response = await ApiService.post(
-        'http://103.31.235.237:5555/api/User/login',
+        'http://34.50.112.226:5555/api/User/login',
         data: json.encode({
           'email': email,
           'password': password,

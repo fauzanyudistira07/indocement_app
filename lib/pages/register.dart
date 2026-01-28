@@ -228,7 +228,7 @@ class _RegisterState extends State<Register> {
       }
 
       final response = await http.get(
-        Uri.parse('http://103.31.235.237:5555/api/Sections'),
+        Uri.parse('http://34.50.112.226:5555/api/Sections'),
         headers: {'accept': 'text/plain'},
       );
       if (response.statusCode == 200) {
@@ -320,7 +320,7 @@ class _RegisterState extends State<Register> {
       };
 
       final response = await http.post(
-        Uri.parse('http://103.31.235.237:5555/api/User/register'),
+        Uri.parse('http://34.50.112.226:5555/api/User/register'),
         body: json.encode(payload),
         headers: {'Content-Type': 'application/json'},
       );

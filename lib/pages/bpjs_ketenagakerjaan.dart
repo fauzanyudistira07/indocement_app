@@ -31,7 +31,7 @@ class _BPJSKetenagakerjaanPageState extends State<BPJSKetenagakerjaanPage> {
 
     try {
       // Pakai ApiService.get agar otomatis pakai token
-      final response = await ApiService.get('http://103.31.235.237:5555/api/Employees');
+      final response = await ApiService.get('http://34.50.112.226:5555/api/Employees');
       if (response.statusCode == 200) {
         final List data = response.data is String ? List<Map<String, dynamic>>.from(jsonDecode(response.data)) : response.data;
 

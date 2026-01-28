@@ -71,7 +71,7 @@ class _FileAktifPageState extends State<FileAktifPage> {
     setState(() => _isLoading = true);
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Employees/$idEmployee',
+        'http://34.50.112.226:5555/api/Employees/$idEmployee',
         headers: {'Accept': 'application/json'},
       );
       if (response.statusCode == 200) {
@@ -100,7 +100,7 @@ class _FileAktifPageState extends State<FileAktifPage> {
     setState(() => _isLoading = true);
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/FileAktif',
+        'http://34.50.112.226:5555/api/FileAktif',
         headers: {'Accept': 'application/json'},
       );
       final List data =
@@ -315,7 +315,7 @@ class _FileAktifPageState extends State<FileAktifPage> {
       });
 
       final response = await ApiService.post(
-        'http://103.31.235.237:5555/api/FileAktif/request',
+        'http://34.50.112.226:5555/api/FileAktif/request',
         data: formData,
         headers: {
           'Accept': 'application/json',
@@ -380,7 +380,7 @@ class _FileAktifPageState extends State<FileAktifPage> {
       return;
     }
 
-    final String baseUrl = 'http://103.31.235.237:5555';
+    final String baseUrl = 'http://34.50.112.226:5555';
     final String fullUrl = '$baseUrl$urlPath';
 
     final hasPermission = await _requestStoragePermission();

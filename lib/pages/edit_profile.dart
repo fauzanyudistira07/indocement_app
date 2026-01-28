@@ -139,7 +139,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Sections/$idSection',
+        'http://34.50.112.226:5555/api/Sections/$idSection',
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -161,7 +161,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/VerifData/requests',
+        'http://34.50.112.226:5555/api/VerifData/requests',
         params: {'employeeId': employeeId},
       );
 
@@ -285,7 +285,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Employees/$employeeId',
+        'http://34.50.112.226:5555/api/Employees/$employeeId',
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -337,7 +337,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
           if (employee['UrlFoto'] != null && employee['UrlFoto'].isNotEmpty) {
             _photoUrl = employee['UrlFoto'].startsWith('/')
-                ? 'http://103.31.235.237:5555${employee['UrlFoto']}'
+                ? 'http://34.50.112.226:5555${employee['UrlFoto']}'
                 : employee['UrlFoto'];
           } else {
             _photoUrl = null;
@@ -477,7 +477,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         });
 
         final response = await ApiService.post(
-          'http://103.31.235.237:5555/api/VerifData/request',
+          'http://34.50.112.226:5555/api/VerifData/request',
           data: formData,
           headers: {
             'accept': '*/*',
@@ -581,7 +581,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       });
 
       final response = await ApiService.put(
-        'http://103.31.235.237:5555/api/Employees/$employeeId/UrlFoto',
+        'http://34.50.112.226:5555/api/Employees/$employeeId/UrlFoto',
         data: formData,
         headers: {
           'accept': '*/*',

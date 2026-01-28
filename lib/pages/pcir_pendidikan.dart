@@ -213,7 +213,7 @@ class _TambahDataPendidikanPageState extends State<TambahDataPendidikanPage> {
       });
 
       final response = await ApiService.put(
-        'http://103.31.235.237:5555/api/Employees/$idEmployee/UrlIjazahTerbaru',
+        'http://34.50.112.226:5555/api/Employees/$idEmployee/UrlIjazahTerbaru',
         data: formData,
         headers: {
           'Content-Type': 'multipart/form-data',

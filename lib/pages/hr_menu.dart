@@ -56,7 +56,7 @@ class _HRCareMenuPageState extends State<HRCareMenuPage>
       }
 
       final employeeResponse = await http.get(
-        Uri.parse('http://103.31.235.237:5555/api/Employees/$idEmployee'),
+        Uri.parse('http://34.50.112.226:5555/api/Employees/$idEmployee'),
       );
 
       if (employeeResponse.statusCode == 200) {

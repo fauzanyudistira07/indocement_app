@@ -7,19 +7,6 @@ import 'package:intl/intl.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:indocement_apk/service/api_service.dart';
 import 'chat.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-Future<void> initNotif() async {
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-}
-
-
 
 class InboxPage extends StatefulWidget {
   const InboxPage({super.key});
@@ -63,7 +50,6 @@ class _InboxPageState extends State<InboxPage> {
   @override
   void initState() {
     super.initState();
-    initNotif(); // Tambahkan ini
     _clearLocalData();
     _loadEmployeeId();
   }
@@ -120,7 +106,7 @@ class _InboxPageState extends State<InboxPage> {
 
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/ChatRooms',
+        'http://34.50.112.226:5555/api/ChatRooms',
         headers: {'Accept': 'application/json'},
       );
       if (response.statusCode == 200) {
@@ -151,6 +137,41 @@ class _InboxPageState extends State<InboxPage> {
     }
   }
 
+  bool _isAbsensiSource(String source) {
+    return source.toLowerCase().contains('absen');
+  }
+
+  String _normalizeStatus(String rawStatus) {
+    if (rawStatus == 'Diajukan') return 'Diajukan';
+    if (rawStatus == 'Disetujui' || rawStatus == 'DiSetujui') return 'Disetujui';
+    if (rawStatus == 'Dilihat') return 'Dilihat';
+    if (rawStatus == 'DiReturn') return 'DiReturn';
+    if (rawStatus == 'Ditolak') return 'Ditolak';
+    return 'Pending';
+  }
+
+  String _resolveDisplayStatus({
+    required String source,
+    required String rawStatus,
+    required String message,
+  }) {
+    if (_isAbsensiSource(source)) {
+      final statusLower = rawStatus.toLowerCase();
+      final messageLower = message.toLowerCase();
+      if (statusLower.contains('masuk') || messageLower.contains('masuk')) {
+        return 'Sudah Absen Masuk';
+      }
+      if (statusLower.contains('keluar') || messageLower.contains('keluar')) {
+        return 'Sudah Absen Keluar';
+      }
+      if (statusLower.isEmpty || statusLower == 'pending') {
+        return 'Sudah Absen';
+      }
+    }
+    final normalized = _normalizeStatus(rawStatus);
+    return normalized.isNotEmpty ? normalized : 'Pending';
+  }
+
   Future<void> _fetchNotifications({bool forceFetch = false}) async {
     if (!mounted || _employeeId == null) return;
 
@@ -173,7 +194,7 @@ class _InboxPageState extends State<InboxPage> {
 
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Notifications',
+        'http://34.50.112.226:5555/api/Notifications',
         headers: {'Accept': 'application/json'},
       );
       if (response.statusCode == 200) {
@@ -206,24 +227,24 @@ class _InboxPageState extends State<InboxPage> {
             _notifications = newNotifications
                 .map((notif) {
                   final source = notif['Source']?.toString() ?? 'Unknown';
-                  final status = notif['Status']?.toString() == 'Diajukan'
-                      ? 'Diajukan'
-                      : notif['Status']?.toString() == 'Disetujui'
-                          ? 'Disetujui'
-                          : notif['Status']?.toString() == 'DiSetujui'
-                              ? 'Disetujui'
-                              : notif['Status']?.toString() == 'Dilihat'
-                                  ? 'Dilihat'
-                                  : notif['Status']?.toString() == 'DiReturn'
-                                      ? 'DiReturn'
-                                      : notif['Status']?.toString() == 'Ditolak'
-                                          ? 'Ditolak'
-                                          : 'Pending';
+                  final rawStatus = notif['Status']?.toString() ?? '';
+                  final rawMessage = (notif['Message'] ??
+                          notif['Keterangan'] ??
+                          notif['Title'] ??
+                          '')
+                      .toString();
+                  final status = _resolveDisplayStatus(
+                    source: source,
+                    rawStatus: rawStatus,
+                    message: rawMessage,
+                  );
+                  final message = rawMessage.isNotEmpty ? rawMessage : null;
                   return {
                     'Id': notif['Id']?.toString() ?? '',
                     'IdSource': notif['IdSource']?.toString() ?? 'N/A',
                     'source': source,
                     'Status': status,
+                    'message': message,
                     'timestamp': notif['UpdatedAt']?.toString() ??
                         notif['CreatedAt']?.toString() ??
                         '',
@@ -268,7 +289,7 @@ class _InboxPageState extends State<InboxPage> {
 
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/ChatMessages/room/$roomId?currentUserId=$_employeeId',
+        'http://34.50.112.226:5555/api/ChatMessages/room/$roomId?currentUserId=$_employeeId',
         headers: {'Accept': 'application/json'},
       );
       if (response.statusCode == 200) {
@@ -309,7 +330,7 @@ class _InboxPageState extends State<InboxPage> {
 
     try {
       final response = await ApiService.put(
-        'http://103.31.235.237:5555/api/ChatMessages/update-status/$messageId',
+        'http://34.50.112.226:5555/api/ChatMessages/update-status/$messageId',
         data: {'status': status},
         headers: {'Content-Type': 'application/json'},
       );

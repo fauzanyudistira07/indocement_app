@@ -20,7 +20,7 @@ class MedicPasutriPage extends StatefulWidget {
 
 class _MedicPasutriPageState extends State<MedicPasutriPage> {
   final String fileUrl =
-      'http://103.31.235.237:5555/templates/medical.pdf'; // URL file
+      'http://34.50.112.226:5555/templates/medical.pdf'; // URL file
   bool isLoadingDownload =
       false; // Untuk menampilkan indikator loading download
   bool isDownloaded = false; // Status apakah file sudah didownload
@@ -74,7 +74,7 @@ class _MedicPasutriPageState extends State<MedicPasutriPage> {
         },
       );
 
-final url = 'http://103.31.235.237:5555/api/Medical/generate-medical-document/$idEmployee';
+final url = 'http://34.50.112.226:5555/api/Medical/generate-medical-document/$idEmployee';
 
 // Define the data to be sent in the request body
 final Map<String, dynamic> data = {
@@ -187,7 +187,7 @@ final response = await ApiService.post(
       });
 
       final response = await dio.post(
-        'http://103.31.235.237:5555/api/Medical/upload',
+        'http://34.50.112.226:5555/api/Medical/upload',
         data: formData,
         options: Options(
           headers: {
@@ -239,7 +239,7 @@ Future<void> uploadSuratMedic(String jenisSurat) async {
       'jenisSurat': jenisSurat,
     });
     final response = await ApiService.post(
-      'http://103.31.235.237:5555/api/Medical/upload',
+      'http://34.50.112.226:5555/api/Medical/upload',
       data: formData,
       headers: {
         'Content-Type': 'multipart/form-data',
@@ -289,7 +289,7 @@ Future<void> uploadSuratMedic(String jenisSurat) async {
     try {
       // Panggil API untuk mendapatkan idEmployee
 final response = await ApiService.get(
-  'http://103.31.235.237:5555/api/Employees/get-id',
+  'http://34.50.112.226:5555/api/Employees/get-id',
   headers: {'accept': 'application/json'},
 );
 
@@ -328,7 +328,7 @@ final response = await ApiService.get(
     try {
       // Panggil API untuk mendapatkan data Medical
       final response = await ApiService.get(
-  'http://103.31.235.237:5555/api/Medical',
+  'http://34.50.112.226:5555/api/Medical',
   headers: {'accept': 'application/json'},
 );
 
@@ -375,7 +375,7 @@ final response = await ApiService.get(
 
       // Ambil semua data employee
       final response = await ApiService.get(
-  'http://103.31.235.237:5555/api/Employees/',
+  'http://34.50.112.226:5555/api/Employees/',
   headers: {'accept': 'application/json'},
 );
 
@@ -425,7 +425,7 @@ final response = await ApiService.get(
       if (idEmployee == null) return;
 
 final response = await ApiService.get(
-  'http://103.31.235.237:5555/api/Employees/$idEmployee',
+  'http://34.50.112.226:5555/api/Employees/$idEmployee',
   headers: {'accept': 'application/json'},
 );
 
@@ -1388,7 +1388,7 @@ final response = await ApiService.get(
                                             );
 
 final response = await ApiService.post(
-  'http://103.31.235.237:5555/api/Medical/generate-medical-document?jenisSurat=keterangan',
+  'http://34.50.112.226:5555/api/Medical/generate-medical-document?jenisSurat=keterangan',
   data: {
     "{{id_employee}}": idEmployee.toString(),
     "{{nama_pemberi_keterangan}}": namaAtasanController.text,
@@ -2043,7 +2043,7 @@ if (response.statusCode == 200) {
                                                 selectedJenisSurat ??
                                                     'keterangan';
                                             String url =
-                                                'http://103.31.235.237:5555/api/Medical/generate-medical-document?jenisSurat=$jenisSurat';
+                                                'http://34.50.112.226:5555/api/Medical/generate-medical-document?jenisSurat=$jenisSurat';
 
 Map<String, dynamic> data;
 if (jenisSurat == 'pernyataan') {
@@ -2407,7 +2407,7 @@ onPressed: isUploading
             'jenisSurat': selectedJenisSuratUpload,
           });
           final response = await ApiService.post(
-            'http://103.31.235.237:5555/api/Medical/upload',
+            'http://34.50.112.226:5555/api/Medical/upload',
             data: formData,
             headers: {
               'Content-Type': 'multipart/form-data',

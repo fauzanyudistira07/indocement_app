@@ -256,7 +256,7 @@ class _BPJSKaryawanPageState extends State<BPJSKaryawanPage> {
       print('=================================');
 
       final uploadResponse = await ApiService.post(
-        'http://103.31.235.237:5555/api/Bpjs/upload',
+        'http://34.50.112.226:5555/api/Bpjs/upload',
         data: formData,
       );
 
@@ -279,7 +279,7 @@ class _BPJSKaryawanPageState extends State<BPJSKaryawanPage> {
 
       // Ambil data employee dari API
       final empResponse = await ApiService.get(
-        'http://103.31.235.237:5555/api/Employees',
+        'http://34.50.112.226:5555/api/Employees',
         params: {'id': idEmployee},
       );
       int? idSection;
@@ -299,7 +299,7 @@ class _BPJSKaryawanPageState extends State<BPJSKaryawanPage> {
       int? latestBpjsId;
       if (idSection != null) {
         final bpjsResponse = await ApiService.get(
-          'http://103.31.235.237:5555/api/Bpjs',
+          'http://34.50.112.226:5555/api/Bpjs',
           params: {'idSection': idSection},
         );
         if (bpjsResponse.statusCode == 200 &&
@@ -349,7 +349,7 @@ class _BPJSKaryawanPageState extends State<BPJSKaryawanPage> {
     try {
       // Ambil data dari API untuk mendapatkan ID yang sesuai
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Bpjs',
+        'http://34.50.112.226:5555/api/Bpjs',
         params: {'idEmployee': idEmployee},
       );
 
@@ -387,7 +387,7 @@ class _BPJSKaryawanPageState extends State<BPJSKaryawanPage> {
 
         // Kirim data ke API dengan endpoint dinamis
         final uploadResponse = await ApiService.post(
-          'http://103.31.235.237:5555/api/Bpjs/upload',
+          'http://34.50.112.226:5555/api/Bpjs/upload',
           data: formData,
         );
 
@@ -406,7 +406,7 @@ class _BPJSKaryawanPageState extends State<BPJSKaryawanPage> {
 
           // Ambil data employee dari API
           final empResponse = await ApiService.get(
-            'http://103.31.235.237:5555/api/Employees',
+            'http://34.50.112.226:5555/api/Employees',
             params: {'id': idEmployee},
           );
           int? idSection;
@@ -426,7 +426,7 @@ class _BPJSKaryawanPageState extends State<BPJSKaryawanPage> {
           int? latestBpjsId;
           if (idSection != null) {
             final bpjsResponse = await ApiService.get(
-              'http://103.31.235.237:5555/api/Bpjs',
+              'http://34.50.112.226:5555/api/Bpjs',
               params: {'idSection': idSection},
             );
             if (bpjsResponse.statusCode == 200 &&

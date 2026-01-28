@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:indocement_apk/service/api_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class MasterScreen extends StatefulWidget {
   const MasterScreen({super.key});
@@ -31,6 +32,11 @@ class _MasterScreenState extends State<MasterScreen>
   int? _employeeId;
   final Set<String> _processedVerifIds = {};
   Timer? _pollingTimer;
+  Timer? _notifTimer;
+  final FlutterLocalNotificationsPlugin _notifPlugin =
+      FlutterLocalNotificationsPlugin();
+  Set<String> _shownNotifIds = {};
+  bool _notifInitialized = false;
   bool _isFetchingVerifData = false;
   bool _isLoadingDialogVisible = false;
   bool _isInitialLoadComplete = false;
@@ -80,6 +86,7 @@ class _MasterScreenState extends State<MasterScreen>
     _checkAndRequestAllPermissions();
     _loadEmployeeId();
     // Hapus: _checkProfileAndShowModal();
+    _initNotif();
   }
 
   Future<void> _loadEmployeeId() async {
@@ -90,7 +97,48 @@ class _MasterScreenState extends State<MasterScreen>
     if (_employeeId != null) {
       await _loadProcessedVerifIds(); // Load persisted verification IDs
       _startPolling();
+      _startNotifPolling();
     }
+  }
+
+  Future<void> _initNotif() async {
+    if (_notifInitialized) return;
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await _notifPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) async {
+        if (!mounted) return;
+        Navigator.of(context).pushNamedAndRemoveUntil('/master', (route) => false);
+      },
+    );
+    _notifInitialized = true;
+  }
+
+  Future<void> _showNotif(String title, String body) async {
+    if (!_notifInitialized) {
+      await _initNotif();
+    }
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'inbox_channel_id',
+      'Inbox Notifications',
+      channelDescription: 'Notifikasi untuk pesan Inbox',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+    final id = DateTime.now().millisecondsSinceEpoch.remainder(100000);
+    await _notifPlugin.show(
+      id,
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: 'inbox',
+    );
   }
 
   Future<void> _loadProcessedVerifIds() async {
@@ -122,7 +170,7 @@ class _MasterScreenState extends State<MasterScreen>
 
     try {
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/VerifData/requests',
+        'http://34.50.112.226:5555/api/VerifData/requests',
         params: {'employeeId': _employeeId},
         headers: {'Content-Type': 'application/json'},
       );
@@ -170,6 +218,55 @@ class _MasterScreenState extends State<MasterScreen>
     _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
       if (mounted && !_isLoadingDialogVisible && _isInitialLoadComplete) {
         await _fetchVerifData();
+      }
+    });
+  }
+
+  void _startNotifPolling() async {
+    if (_employeeId == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    _shownNotifIds = (prefs.getStringList('shownNotifIds') ?? []).toSet();
+
+    _notifTimer?.cancel();
+    _notifTimer = Timer.periodic(const Duration(minutes: 1), (_) async {
+      try {
+        final response = await ApiService.get(
+          'http://34.50.112.226:5555/api/Notifications',
+          headers: {'Accept': 'application/json'},
+        );
+        if (response.statusCode != 200) return;
+
+        final data =
+            response.data is String ? jsonDecode(response.data) : response.data;
+        final List<Map<String, dynamic>> notifications = (data as List)
+            .cast<Map<String, dynamic>>()
+            .where((notif) =>
+                notif['IdEmployee']?.toString() == _employeeId.toString())
+            .toList();
+
+        final allIds = notifications.map((n) => n['Id'].toString()).toSet();
+        final newIds = allIds.difference(_shownNotifIds);
+        if (newIds.isEmpty) return;
+
+        for (final notif in notifications) {
+          final id = notif['Id']?.toString();
+          if (id == null || !newIds.contains(id)) continue;
+          final title = notif['Source']?.toString() ?? 'Notifikasi';
+          final status = notif['Status']?.toString() ?? '-';
+          final message = (notif['Message'] ??
+                  notif['Keterangan'] ??
+                  notif['Title'] ??
+                  '')
+              .toString();
+          final body = message.isNotEmpty
+              ? '$status - $message'
+              : 'Status: $status';
+          await _showNotif(title, body);
+          _shownNotifIds.add(id);
+        }
+        await prefs.setStringList('shownNotifIds', _shownNotifIds.toList());
+      } catch (_) {
+        // Optional: ignore polling errors
       }
     });
   }
@@ -453,6 +550,7 @@ class _MasterScreenState extends State<MasterScreen>
   void dispose() {
     _animationController.dispose();
     _pollingTimer?.cancel();
+    _notifTimer?.cancel();
     _closeLoadingDialog();
     super.dispose();
   }
@@ -755,7 +853,7 @@ class _MasterContentState extends State<MasterContent> {
       }
 
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Employees/$employeeId',
+        'http://34.50.112.226:5555/api/Employees/$employeeId',
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -767,7 +865,7 @@ class _MasterContentState extends State<MasterContent> {
         setState(() {
           if (data['UrlFoto'] != null && data['UrlFoto'].isNotEmpty) {
             if (data['UrlFoto'].startsWith('/')) {
-              _urlFoto = 'http://103.31.235.237:5555${data['UrlFoto']}';
+              _urlFoto = 'http://34.50.112.226:5555${data['UrlFoto']}';
             } else {
               _urlFoto = data['UrlFoto'];
             }
@@ -820,7 +918,7 @@ class _MasterContentState extends State<MasterContent> {
       }
 
       final response = await ApiService.get(
-        'http://103.31.235.237:5555/api/Employees/$employeeId',
+        'http://34.50.112.226:5555/api/Employees/$employeeId',
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -834,7 +932,7 @@ class _MasterContentState extends State<MasterContent> {
           _jobTitle = data['JobTitle'] ?? "Departemen Tidak Tersedia";
           _urlFoto = data['UrlFoto'] != null && data['UrlFoto'].isNotEmpty
               ? (data['UrlFoto'].startsWith('/')
-                  ? 'http://103.31.235.237:5555${data['UrlFoto']}'
+                  ? 'http://34.50.112.226:5555${data['UrlFoto']}'
                   : data['UrlFoto'])
               : null;
           _email = data['Email'] ?? "Email Tidak Tersedia";
