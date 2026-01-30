@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart';
 import 'dart:math';
+import 'dart:convert';
 // Ensure this import is present
 import 'package:shared_preferences/shared_preferences.dart';
 // Tambahkan di bagian import jika belum
@@ -31,6 +32,17 @@ class _MedicPasutriPageState extends State<MedicPasutriPage> {
   // Tambahkan variabel state untuk loading kirim surat
   bool isSending = false;
   bool isDropdownEnabled = false;
+  String? employeeGender;
+  bool isJenisSuratLoading = false;
+  bool isGenderDialogShowing = false;
+  String? selectedAlamatPerusahaan;
+  final List<String> alamatPerusahaanOptions = [
+    'Jl. Mayor Oking Jayaatmaja, Citeureup, Kec. Gn. Putri, Kabupaten Bogor, Jawa Barat 16810',
+    'Citeureup, Kec. Citeureup, Kabupaten Bogor, Jawa Barat',
+    'Wisma Indocement, Lt. 13, Jl. Jenderal Sudirman No.71 Kav. 70, Kecamatan Setiabudi, Daerah Khusus Ibukota Jakarta 12910',
+    'Jalan Mayor Oking Jayaatmaja, Citeureup, Kec. Citeureup, Kabupaten Bogor, Jawa Barat 16810',
+    'Tj. Priok, Kec. Tj. Priok, Jkt Utara, Daerah Khusus Ibukota Jakarta 14310',
+  ];
 
   @override
   void initState() {
@@ -41,6 +53,7 @@ class _MedicPasutriPageState extends State<MedicPasutriPage> {
     tanggalSuratController.text =
         "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}";
     tahunController.text = now.year.toString();
+    namaPerusahaanController.text = 'PT Indocement Tunggal Prakarsa Tbk';
 
     // Panggil fungsi untuk menyimpan IdSection dan IdEsl ke SharedPreferences
   }
@@ -375,9 +388,9 @@ final response = await ApiService.get(
 
       // Ambil semua data employee
       final response = await ApiService.get(
-  'http://34.50.112.226:5555/api/Employees/',
-  headers: {'accept': 'application/json'},
-);
+        'http://34.50.112.226:5555/api/Employees',
+        headers: {'accept': 'application/json'},
+      );
 
       if (response.statusCode == 200 && response.data is List) {
         final List employees = response.data;
@@ -389,9 +402,16 @@ final response = await ApiService.get(
         );
         if (user == null) return;
 
+        // Simpan IdSection user untuk kebutuhan lain
+        final idSection = user['IdSection'];
+        if (idSection != null) {
+          await prefs.setInt('idSection', idSection);
+          await fetchSectionAndUnitBySectionId(idSection);
+        }
+
         // Cari atasan dengan IdSection sama dan IdEsl == 3
         final atasan = employees.firstWhere(
-          (e) => e['IdSection'] == user['IdSection'] && e['IdEsl'] == 3,
+          (e) => e['IdSection'] == idSection && e['IdEsl'] == 3,
           orElse: () => null,
         );
 
@@ -400,12 +420,474 @@ final response = await ApiService.get(
           namaAtasanController.text =
               atasan != null ? (atasan['EmployeeName'] ?? '') : '';
           jabatanAtasanController.text =
-              atasan != null ? (atasan['PositionName'] ?? '') : '';
+              atasan != null ? (atasan['JobTitle'] ?? '') : '';
           // Field lain tidak diisi otomatis
         });
       }
     } catch (e) {
       print('Gagal fetch data employee: $e');
+    }
+  }
+
+  String _firstString(Map data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value != null) {
+        final text = value.toString().trim();
+        if (text.isNotEmpty) return text;
+      }
+    }
+    return '';
+  }
+
+  String _normalizeGender(String? raw) {
+    if (raw == null) return '';
+    final text = raw.toString().trim().toLowerCase();
+    if (text.isEmpty) return '';
+    if (text.startsWith('l') || text.contains('laki')) return 'L';
+    if (text.startsWith('p') || text.startsWith('w') || text.contains('perem')) {
+      return 'W';
+    }
+    return text.toUpperCase();
+  }
+
+  Future<void> _showGenderWarningDialog() async {
+    if (isGenderDialogShowing) return;
+    if (!mounted) return;
+    setState(() {
+      isGenderDialogShowing = true;
+    });
+    await showDialog(
+      context: this.context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 56,
+                  width: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3CD),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Color(0xFF856404),
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Peringatan',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Surat Pernyataan hanya untuk karyawan wanita.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Navigator.of(this.context).pop();
+                    },
+                    child: const Text('OKE'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (mounted) {
+      setState(() {
+        isGenderDialogShowing = false;
+      });
+    }
+  }
+
+  DateTime? _parseDateFlexible(String? raw) {
+    if (raw == null) return null;
+    var text = raw.toString().trim();
+    if (text.isEmpty) return null;
+    if (text.contains('T')) {
+      text = text.split('T').first;
+    } else if (text.contains(' ')) {
+      text = text.split(' ').first;
+    }
+    try {
+      if (text.contains('-')) {
+        final parts = text.split('-');
+        if (parts.length == 3) {
+          final year = int.tryParse(parts[0]);
+          final month = int.tryParse(parts[1]);
+          final day = int.tryParse(parts[2]);
+          if (year != null && month != null && day != null) {
+            return DateTime(year, month, day);
+          }
+        }
+      }
+      if (text.contains('.') || text.contains('/')) {
+        final separator = text.contains('.') ? '.' : '/';
+        final parts = text.split(separator);
+        if (parts.length == 3) {
+          final day = int.tryParse(parts[0]);
+          final month = int.tryParse(parts[1]);
+          var year = int.tryParse(parts[2]);
+          if (day != null && month != null && year != null) {
+            if (parts[2].length == 2) {
+              final currentTwoDigit = DateTime.now().year % 100;
+              year = year <= currentTwoDigit ? 2000 + year : 1900 + year;
+            }
+            if (year < 1900) return null;
+            return DateTime(year, month, day);
+          }
+        }
+      }
+      final parsed = DateTime.tryParse(text);
+      if (parsed != null && parsed.year >= 1900) return parsed;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _formatDateForDisplay(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final year = date.year.toString().padLeft(4, '0');
+    return "$day.$month.$year";
+  }
+
+  String _formatDateFromString(String? raw) {
+    final date = _parseDateFlexible(raw);
+    if (date == null) return '';
+    return _formatDateForDisplay(date);
+  }
+
+  Future<void> fetchAndFillKaryawanData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final idEmployee = prefs.getInt('idEmployee');
+      if (idEmployee == null) return;
+
+      final response = await ApiService.get(
+        'http://34.50.112.226:5555/api/Employees/$idEmployee',
+        headers: {'accept': 'application/json'},
+      );
+      if (response.statusCode != 200 || response.data == null) return;
+      final data =
+          response.data is String ? jsonDecode(response.data) : response.data;
+      if (data is! Map) return;
+
+      final nama = _firstString(data, ['EmployeeName', 'Nama', 'Name']);
+      final nik =
+          _firstString(data, ['EmployeeNo', 'NIK', 'Nik', 'EmployeeNumber']);
+      final tempatLahir =
+          _firstString(data, ['TempatLahir', 'BirthPlace', 'PlaceOfBirth']);
+      final tanggalLahir = _formatDateFromString(_firstString(
+          data, ['TanggalLahir', 'BirthDate', 'DateOfBirth']));
+      final alamat =
+          _firstString(data, ['Alamat', 'Address', 'AlamatKaryawan']);
+      final tglMulaiKerja = _formatDateFromString(_firstString(data, [
+        'TanggalMulaiKerja',
+        'TglMulaiKerja',
+        'TanggalMulai',
+        'JoinDate',
+        'TanggalMasuk'
+      ]));
+      final jabatanTerakhir = _firstString(
+          data, ['JobTitle', 'PositionName', 'JabatanTerakhir']);
+      final idSection = data['IdSection'];
+      final sectionName =
+          _firstString(data, ['NamaSection', 'SectionName']);
+      final genderRaw =
+          _firstString(data, ['Gender', 'JenisKelamin', 'Jk', 'Sex']);
+      final gender = _normalizeGender(genderRaw);
+
+      setState(() {
+        if (nama.isNotEmpty) namaKaryawanController.text = nama;
+        if (nik.isNotEmpty) nikController.text = nik;
+        if (tempatLahir.isNotEmpty) {
+          tempatLahirKaryawanController.text = tempatLahir;
+        }
+        if (tanggalLahir.isNotEmpty) {
+          tanggalLahirKaryawanController.text = tanggalLahir;
+        }
+        if (alamat.isNotEmpty) alamatKaryawanController.text = alamat;
+        if (tglMulaiKerja.isNotEmpty) {
+          tglMulaiKerjaController.text = tglMulaiKerja;
+        }
+        if (jabatanTerakhir.isNotEmpty) {
+          jabatanTerakhirController.text = jabatanTerakhir;
+        }
+        if (gender.isNotEmpty) {
+          employeeGender = gender;
+        }
+      });
+
+      if (idSection is int) {
+        await fetchPlantDivAndDepartementBySectionId(idSection, sectionName);
+      } else if (idSection != null) {
+        final parsed = int.tryParse(idSection.toString());
+        if (parsed != null) {
+          await fetchPlantDivAndDepartementBySectionId(parsed, sectionName);
+        }
+      }
+
+      final family = data['FamilyEmployees'];
+      if (family is List) {
+        final pasangan = family.cast<dynamic>().firstWhere(
+              (e) => e is Map && (e['NamaPasangan'] != null || e['StatusPasangan'] != null),
+              orElse: () => null,
+            );
+        if (pasangan is Map) {
+          final namaPasangan =
+              _firstString(pasangan, ['NamaPasangan', 'NamaIstri', 'NamaSuami']);
+          final statusPasangan =
+              _firstString(pasangan, ['StatusPasangan', 'Status']);
+          final tempatLahirPasangan = _firstString(
+              pasangan, ['TempatLahirPasangan', 'TempatLahir']);
+          final tanggalLahirPasangan = _formatDateFromString(_firstString(
+              pasangan, ['TglLahirPasangan', 'TanggalLahirPasangan']));
+
+          setState(() {
+            if (namaPasangan.isNotEmpty) {
+              namaPasanganController.text = namaPasangan;
+            }
+            if (statusPasangan.isNotEmpty) {
+              statusPasanganController.text = statusPasangan;
+            }
+            if (tempatLahirPasangan.isNotEmpty) {
+              tempatLahirPasanganController.text = tempatLahirPasangan;
+            }
+            if (tanggalLahirPasangan.isNotEmpty) {
+              tanggalLahirPasanganController.text = tanggalLahirPasangan;
+            }
+          });
+        }
+
+        final children = family
+            .where((e) => e is Map && e['NamaAnak'] != null)
+            .cast<Map>()
+            .toList();
+        if (children.isNotEmpty) {
+          void fillChild(int index, Map child) {
+            final nama = _firstString(child, ['NamaAnak']);
+            final tempatLahir = _firstString(
+                child, ['TempatLahirAnak', 'TempatLahir']);
+            final tanggalLahir = _formatDateFromString(
+                _firstString(child, ['TglLahirAnak', 'TanggalLahirAnak']));
+            final pendidikan = _firstString(child, ['PendidikanAnak']);
+
+            setState(() {
+              if (index == 0) {
+                if (nama.isNotEmpty) namaAnak1Controller.text = nama;
+                if (tempatLahir.isNotEmpty) {
+                  tempatLahirAnak1Controller.text = tempatLahir;
+                }
+                if (tanggalLahir.isNotEmpty) {
+                  ttlAnak1Controller.text = tanggalLahir;
+                }
+                if (pendidikan.isNotEmpty) {
+                  pendidikanAnak1Controller.text = pendidikan;
+                }
+              } else if (index == 1) {
+                if (nama.isNotEmpty) namaAnak2Controller.text = nama;
+                if (tempatLahir.isNotEmpty) {
+                  tempatLahirAnak2Controller.text = tempatLahir;
+                }
+                if (tanggalLahir.isNotEmpty) {
+                  ttlAnak2Controller.text = tanggalLahir;
+                }
+                if (pendidikan.isNotEmpty) {
+                  pendidikanAnak2Controller.text = pendidikan;
+                }
+              } else if (index == 2) {
+                if (nama.isNotEmpty) namaAnak3Controller.text = nama;
+                if (tempatLahir.isNotEmpty) {
+                  tempatLahirAnak3Controller.text = tempatLahir;
+                }
+                if (tanggalLahir.isNotEmpty) {
+                  ttlAnak3Controller.text = tanggalLahir;
+                }
+                if (pendidikan.isNotEmpty) {
+                  pendidikanAnak3Controller.text = pendidikan;
+                }
+              }
+            });
+          }
+
+          for (var i = 0; i < children.length && i < 3; i++) {
+            fillChild(i, children[i]);
+          }
+        }
+      }
+    } catch (e) {
+      print('Gagal fetch data karyawan: $e');
+    }
+  }
+
+  Future<void> fetchSectionAndUnitBySectionId(int idSection) async {
+    try {
+      final sectionsResponse = await ApiService.get(
+        'http://34.50.112.226:5555/api/Sections',
+        headers: {'accept': 'application/json'},
+      );
+      if (sectionsResponse.statusCode == 200 &&
+          sectionsResponse.data is List) {
+        final List sections = sectionsResponse.data;
+        final section = sections.firstWhere(
+          (s) => s['Id'] == idSection,
+          orElse: () => null,
+        );
+        final sectionName = section != null ? section['NamaSection'] : null;
+        final normalizedSectionName = sectionName != null
+            ? sectionName.toString().trim().toLowerCase()
+            : null;
+        if (sectionName != null && sectionName.toString().isNotEmpty) {
+          setState(() {
+            sectionController.text = sectionName.toString();
+          });
+        }
+
+        final unitsResponse = await ApiService.get(
+          'http://34.50.112.226:5555/api/Units',
+          headers: {'accept': 'application/json'},
+        );
+        if (unitsResponse.statusCode == 200 && unitsResponse.data is List) {
+          final List units = unitsResponse.data;
+          Map<String, dynamic>? matchedUnit;
+
+          for (final unit in units) {
+            final plantDivisions = unit['PlantDivisions'];
+            if (plantDivisions is! List) continue;
+            for (final pd in plantDivisions) {
+              final departements = pd['Departements'];
+              if (departements is! List) continue;
+              for (final dept in departements) {
+                final sections = dept['Sections'];
+                if (sections is! List) continue;
+                for (final sec in sections) {
+                  if (sec['Id'] == idSection) {
+                    matchedUnit = unit;
+                    break;
+                  }
+                  final secName = sec['NamaSection'];
+                  final normalizedSecName = secName != null
+                      ? secName.toString().trim().toLowerCase()
+                      : null;
+                  if (normalizedSectionName != null &&
+                      normalizedSecName != null &&
+                      normalizedSecName == normalizedSectionName) {
+                    matchedUnit = unit;
+                    break;
+                  }
+                }
+                if (matchedUnit != null) break;
+              }
+              if (matchedUnit != null) break;
+            }
+            if (matchedUnit != null) break;
+          }
+
+          final unitName =
+              matchedUnit != null ? matchedUnit['NamaUnit'] : null;
+          if (unitName != null && unitName.toString().isNotEmpty) {
+            setState(() {
+              unitController.text = unitName.toString();
+            });
+          }
+        }
+      }
+    } catch (e) {
+      print('Gagal fetch section/unit: $e');
+    }
+  }
+
+  Future<void> fetchPlantDivAndDepartementBySectionId(
+    int idSection,
+    String? sectionName,
+  ) async {
+    try {
+      final response = await ApiService.get(
+        'http://34.50.112.226:5555/api/PlantDivisions',
+        headers: {'accept': 'application/json'},
+      );
+      if (response.statusCode != 200 || response.data is! List) return;
+      final List plantDivs = response.data;
+      final normalizedSectionName =
+          sectionName != null ? sectionName.trim().toLowerCase() : null;
+
+      String? matchedPlantDiv;
+      String? matchedDept;
+
+      for (final pd in plantDivs) {
+        final departements = pd['Departements'];
+        if (departements is! List) continue;
+        for (final dept in departements) {
+          final sections = dept['Sections'];
+          if (sections is! List) continue;
+          for (final sec in sections) {
+            if (sec['Id'] == idSection) {
+              matchedPlantDiv = pd['NamaPlantDivision']?.toString();
+              matchedDept = dept['NamaDepartement']?.toString();
+              break;
+            }
+            final secName = sec['NamaSection'];
+            final normalizedSecName = secName != null
+                ? secName.toString().trim().toLowerCase()
+                : null;
+            if (normalizedSectionName != null &&
+                normalizedSecName != null &&
+                normalizedSecName == normalizedSectionName) {
+              matchedPlantDiv = pd['NamaPlantDivision']?.toString();
+              matchedDept = dept['NamaDepartement']?.toString();
+              break;
+            }
+          }
+          if (matchedPlantDiv != null || matchedDept != null) break;
+        }
+        if (matchedPlantDiv != null || matchedDept != null) break;
+      }
+
+      if ((matchedPlantDiv ?? '').isNotEmpty || (matchedDept ?? '').isNotEmpty) {
+        setState(() {
+          if ((matchedPlantDiv ?? '').isNotEmpty) {
+            plandivController.text = matchedPlantDiv!;
+          }
+          if ((matchedDept ?? '').isNotEmpty) {
+            departementController.text = matchedDept!;
+          }
+        });
+      }
+    } catch (e) {
+      print('Gagal fetch plandiv/departement: $e');
     }
   }
 
@@ -666,25 +1148,71 @@ final response = await ApiService.get(
                                     horizontal: 12, vertical: 8),
                               ),
                               value: selectedJenisSurat,
-                              items: const [
-                                DropdownMenuItem(
+                              onTap: () async {
+                                if (selectedJenisSurat == 'keterangan') {
+                                  await fetchAndFillEmployeeData();
+                                }
+                                if (selectedJenisSurat == 'keterangan' ||
+                                    selectedJenisSurat == 'pernyataan') {
+                                  await fetchAndFillKaryawanData();
+                                }
+                              },
+                              items: [
+                                const DropdownMenuItem(
                                   value: 'keterangan',
                                   child: Text('Surat Keterangan'),
                                 ),
                                 DropdownMenuItem(
                                   value: 'pernyataan',
-                                  child: Text('Surat Pernyataan'),
+                                  enabled: employeeGender != 'L',
+                                  child: const Text('Surat Pernyataan'),
                                 ),
                               ],
                               onChanged: (value) async {
+                                if (value == null) return;
                                 setState(() {
-                                  selectedJenisSurat = value;
+                                  isJenisSuratLoading = true;
                                 });
+
+                                if (value == 'pernyataan') {
+                                  await fetchAndFillKaryawanData();
+                                  if (employeeGender == 'L') {
+                                    if (mounted) {
+                                      setState(() {
+                                        selectedJenisSurat = null;
+                                        isJenisSuratLoading = false;
+                                      });
+                                    }
+                                    FocusScope.of(this.context).unfocus();
+                                    await _showGenderWarningDialog();
+                                    return;
+                                  }
+                                  setState(() {
+                                    selectedJenisSurat = value;
+                                  });
+                                } else if (value == 'keterangan') {
+                                  setState(() {
+                                    selectedJenisSurat = value;
+                                  });
+                                  await fetchAndFillEmployeeData();
+                                  await fetchAndFillKaryawanData();
+                                }
+
+                                if (mounted) {
+                                  setState(() {
+                                    isJenisSuratLoading = false;
+                                  });
+                                }
                               },
                             ),
                           ),
                         ],
                       ),
+                      if (isJenisSuratLoading)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8.0),
+                          child: LinearProgressIndicator(),
+                        ),
                       const SizedBox(height: 20),
 
                       // =====================
@@ -790,15 +1318,52 @@ final response = await ApiService.get(
                                         validator: (v) => v == null || v.isEmpty
                                             ? 'Wajib diisi'
                                             : null,
+                                        readOnly: true,
                                       ),
                                       const SizedBox(height: 12),
-                                      TextFormField(
-                                        controller: alamatPerusahaanController,
+                                      DropdownButtonFormField<String>(
                                         decoration: const InputDecoration(
                                           labelText: 'Alamat Perusahaan *',
+                                          border: OutlineInputBorder(),
                                           prefixIcon:
                                               Icon(Icons.location_on_outlined),
                                         ),
+                                        value: selectedAlamatPerusahaan,
+                                        isExpanded: true,
+                                        items: alamatPerusahaanOptions
+                                            .map(
+                                              (alamat) => DropdownMenuItem(
+                                                value: alamat,
+                                                child: Text(
+                                                  alamat,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                        selectedItemBuilder: (context) {
+                                          return alamatPerusahaanOptions
+                                              .map(
+                                                (alamat) => Align(
+                                                  alignment: Alignment.centerLeft,
+                                                  child: Text(
+                                                    alamat,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              )
+                                              .toList();
+                                        },
+                                        onChanged: (value) {
+                                          setState(() {
+                                            selectedAlamatPerusahaan = value;
+                                            alamatPerusahaanController.text =
+                                                value ?? '';
+                                          });
+                                        },
                                         validator: (v) => v == null || v.isEmpty
                                             ? 'Wajib diisi'
                                             : null,
@@ -897,20 +1462,17 @@ final response = await ApiService.get(
                                               await showDatePicker(
                                             context: context,
                                             initialDate:
-                                                tanggalLahirKaryawanController
-                                                        .text.isNotEmpty
-                                                    ? DateTime.tryParse(
-                                                            tanggalLahirKaryawanController
-                                                                .text) ??
-                                                        DateTime.now()
-                                                    : DateTime.now(),
+                                                _parseDateFlexible(
+                                                        tanggalLahirKaryawanController
+                                                            .text) ??
+                                                    DateTime.now(),
                                             firstDate: DateTime(1900),
                                             lastDate: DateTime.now(),
                                           );
                                           if (picked != null) {
                                             tanggalLahirKaryawanController
                                                     .text =
-                                                "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                                _formatDateForDisplay(picked);
                                           }
                                         },
                                         readOnly: true,
@@ -1059,20 +1621,17 @@ final response = await ApiService.get(
                                               await showDatePicker(
                                             context: context,
                                             initialDate:
-                                                tanggalLahirPasanganController
-                                                        .text.isNotEmpty
-                                                    ? DateTime.tryParse(
-                                                            tanggalLahirPasanganController
-                                                                .text) ??
-                                                        DateTime.now()
-                                                    : DateTime.now(),
+                                                _parseDateFlexible(
+                                                        tanggalLahirPasanganController
+                                                            .text) ??
+                                                    DateTime.now(),
                                             firstDate: DateTime(1900),
                                             lastDate: DateTime.now(),
                                           );
                                           if (picked != null) {
                                             tanggalLahirPasanganController
                                                     .text =
-                                                "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                                _formatDateForDisplay(picked);
                                           }
                                         },
                                         readOnly: true,
@@ -1158,7 +1717,8 @@ final response = await ApiService.get(
                                                 );
                                                 if (picked != null) {
                                                   ttlAnak1Controller.text =
-                                                      "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                                      _formatDateForDisplay(
+                                                          picked);
                                                 }
                                               },
                                               readOnly: true,
@@ -1242,7 +1802,8 @@ final response = await ApiService.get(
                                                 );
                                                 if (picked != null) {
                                                   ttlAnak2Controller.text =
-                                                      "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                                      _formatDateForDisplay(
+                                                          picked);
                                                 }
                                               },
                                               readOnly: true,
@@ -1326,7 +1887,8 @@ final response = await ApiService.get(
                                                 );
                                                 if (picked != null) {
                                                   ttlAnak3Controller.text =
-                                                      "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                                      _formatDateForDisplay(
+                                                          picked);
                                                 }
                                               },
                                               readOnly: true,
@@ -1711,13 +2273,16 @@ if (response.statusCode == 200) {
                                           DateTime? picked =
                                               await showDatePicker(
                                             context: context,
-                                            initialDate: DateTime.now(),
+                                            initialDate: _parseDateFlexible(
+                                                    tanggalLahirSuamiController
+                                                        .text) ??
+                                                DateTime.now(),
                                             firstDate: DateTime(1900),
                                             lastDate: DateTime.now(),
                                           );
                                           if (picked != null) {
                                             tanggalLahirSuamiController.text =
-                                                "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                                _formatDateForDisplay(picked);
                                           }
                                         },
                                         readOnly: true,
@@ -1803,8 +2368,9 @@ if (response.statusCode == 200) {
                                             lastDate: DateTime.now(),
                                           );
                                           if (picked != null) {
-                                            ttlAnak1Controller.text =
-                                                "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                                ttlAnak1Controller.text =
+                                                    _formatDateForDisplay(
+                                                        picked);
                                           }
                                         },
                                         readOnly: true,
@@ -1886,8 +2452,9 @@ if (response.statusCode == 200) {
                                             lastDate: DateTime.now(),
                                           );
                                           if (picked != null) {
-                                            ttlAnak2Controller.text =
-                                                "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                                ttlAnak2Controller.text =
+                                                    _formatDateForDisplay(
+                                                        picked);
                                           }
                                         },
                                         readOnly: true,
@@ -1970,8 +2537,9 @@ if (response.statusCode == 200) {
                                             lastDate: DateTime.now(),
                                           );
                                           if (picked != null) {
-                                            ttlAnak3Controller.text =
-                                                "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+                                                ttlAnak3Controller.text =
+                                                    _formatDateForDisplay(
+                                                        picked);
                                           }
                                         },
                                         readOnly: true,

@@ -75,6 +75,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
   int? _userId;
   final Map<String, String> _changedFields = {};
 
+  int? _coerceInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    return int.tryParse(value.toString());
+  }
+
   String? _mapGenderFromApi(String? apiValue) {
     if (apiValue == null) return null;
     switch (apiValue.toLowerCase()) {
@@ -97,6 +103,34 @@ class _EditProfilePageState extends State<EditProfilePage> {
       return apiValue;
     }
     return null;
+  }
+
+  String? _mapGenderToApi(String? displayValue) {
+    if (displayValue == null) return null;
+    switch (displayValue.toLowerCase()) {
+      case 'laki-laki':
+      case 'l':
+      case 'male':
+        return 'L';
+      case 'perempuan':
+      case 'p':
+      case 'female':
+        return 'P';
+      default:
+        return displayValue;
+    }
+  }
+
+  String _normalizeValueForApi(String fieldName, String value) {
+    switch (fieldName) {
+      case 'BirthDate':
+      case 'ServiceDate':
+        return _formatDateApi(value) ?? value;
+      case 'Gender':
+        return _mapGenderToApi(value) ?? value;
+      default:
+        return value;
+    }
   }
 
   DateTime? _parseDateFlexible(String? value) {
@@ -433,8 +467,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Future<void> _submitChangeRequests() async {
+    final prefs = await SharedPreferences.getInstance();
     final employeeId = widget.employeeId ??
-        (await SharedPreferences.getInstance()).getInt('idEmployee');
+        _coerceInt(fullData['Id']) ??
+        _coerceInt(fullData['EmployeeId']) ??
+        _coerceInt(fullData['id']) ??
+        _coerceInt(fullData['idEmployee']) ??
+        prefs.getInt('idEmployee');
+    print(
+        'submitChangeRequests employeeId=$employeeId fullDataId=${fullData['Id']} prefsId=${prefs.getInt('idEmployee')}');
     if (employeeId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -459,6 +500,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
       final fieldName = entry.key;
       final newValue = entry.value;
       final oldValue = fullData[fieldName] ?? '';
+      final normalizedNewValue =
+          _normalizeValueForApi(fieldName, newValue.toString());
+      final normalizedOldValue =
+          _normalizeValueForApi(fieldName, oldValue.toString());
 
       try {
         // Determine MIME type dynamically
@@ -466,13 +511,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
             'application/octet-stream';
         final mimeParts = mimeType.split('/');
         final formData = FormData.fromMap({
-          'EmployeeId': employeeId.toString(),
+          // Match Swagger exactly
+          'EmployeeId': employeeId,
           'FieldName': fieldName,
-          'OldValue': oldValue.toString(),
-          'NewValue': newValue,
+          'OldValue': normalizedOldValue,
+          'NewValue': normalizedNewValue,
           'SupportingDocumentPath': await MultipartFile.fromFile(
             _supportingDocument!.path,
             contentType: MediaType(mimeParts[0], mimeParts[1]),
+            filename: path.basename(_supportingDocument!.path),
           ),
         });
 
@@ -481,8 +528,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
           data: formData,
           headers: {
             'accept': '*/*',
-            'Content-Type': 'multipart/form-data',
           },
+          validateStatus: (_) => true,
         ).timeout(const Duration(seconds: 10));
 
         print('Response status for $fieldName: ${response.statusCode}');
@@ -497,6 +544,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
           print(
               'Failed to submit $fieldName: ${response.statusCode} - ${response.data}');
         }
+      } on DioException catch (e) {
+        failedFields.add(fieldName);
+        final status = e.response?.statusCode;
+        final data = e.response?.data;
+        print('Error submitting $fieldName: $status - $data');
       } catch (e) {
         failedFields.add(fieldName);
         print('Error submitting $fieldName: $e');
@@ -585,7 +637,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
         data: formData,
         headers: {
           'accept': '*/*',
-          'Content-Type': 'multipart/form-data',
         },
       );
 

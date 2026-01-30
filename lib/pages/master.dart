@@ -828,10 +828,83 @@ class _MasterContentState extends State<MasterContent> {
     });
   }
 
+  void _applyProfileFromPrefs(SharedPreferences prefs) {
+    final cachedName = prefs.getString('employeeName');
+    final cachedJobTitle = prefs.getString('jobTitle');
+    final cachedEmail = prefs.getString('email');
+    final cachedTelepon = prefs.getString('telepon');
+    final cachedUrlFoto = prefs.getString('urlFoto');
+
+    setState(() {
+      _employeeName = cachedName?.isNotEmpty == true
+          ? cachedName
+          : _employeeName ?? "Nama Tidak Tersedia";
+      _jobTitle = cachedJobTitle?.isNotEmpty == true
+          ? cachedJobTitle
+          : _jobTitle ?? "Departemen Tidak Tersedia";
+      _email = cachedEmail?.isNotEmpty == true
+          ? cachedEmail
+          : _email ?? "Email Tidak Tersedia";
+      _telepon = cachedTelepon?.isNotEmpty == true
+          ? cachedTelepon
+          : _telepon ?? "Telepon Tidak Tersedia";
+      _urlFoto = cachedUrlFoto?.isNotEmpty == true ? cachedUrlFoto : _urlFoto;
+    });
+  }
+
+  Future<void> _saveEmployeeToPrefs(
+    SharedPreferences prefs,
+    Map<String, dynamic> data,
+  ) async {
+    await prefs.setString('employeeName', data['EmployeeName'] ?? '');
+    await prefs.setString('jobTitle', data['JobTitle'] ?? '');
+    await prefs.setString('employeeNo', data['EmployeeNo'] ?? '');
+    await prefs.setString('birthDate', data['BirthDate'] ?? '');
+    await prefs.setString('gender', data['Gender'] ?? '');
+    await prefs.setString('education', data['Education'] ?? '');
+    await prefs.setString('serviceDate', data['ServiceDate'] ?? '');
+    await prefs.setString('workLocation', data['WorkLocation'] ?? '');
+    await prefs.setString('livingArea', data['LivingArea'] ?? '');
+    await prefs.setString('email', data['Email'] ?? '');
+    await prefs.setString('telepon', data['Telepon'] ?? '');
+    await prefs.setString('nik', data['Nik'] ?? '');
+    await prefs.setString('noKk', data['NoKk'] ?? '');
+    if (data['IdSection'] != null) {
+      final idSection = int.tryParse(data['IdSection'].toString());
+      if (idSection != null) {
+        await prefs.setInt('idSection', idSection);
+      }
+    }
+    if (data['IdEsl'] != null) {
+      final idEsl = int.tryParse(data['IdEsl'].toString());
+      if (idEsl != null) {
+        await prefs.setInt('idEsl', idEsl);
+      }
+    }
+    if (data['UrlFoto'] != null && data['UrlFoto'].isNotEmpty) {
+      final urlFoto = data['UrlFoto'].startsWith('/')
+          ? 'http://34.50.112.226:5555${data['UrlFoto']}'
+          : data['UrlFoto'];
+      await prefs.setString('urlFoto', urlFoto);
+    }
+    await prefs.setInt(
+      'employeeLastFetchAt',
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
   Future<void> _fetchProfilePhoto() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final employeeId = prefs.getInt('idEmployee');
+      final cachedUrlFoto = prefs.getString('urlFoto');
+
+      if (cachedUrlFoto != null && cachedUrlFoto.isNotEmpty) {
+        setState(() {
+          _urlFoto = cachedUrlFoto;
+        });
+        return;
+      }
 
       if (employeeId == null || employeeId <= 0) {
         print('Invalid or missing employeeId: $employeeId');
@@ -893,6 +966,18 @@ class _MasterContentState extends State<MasterContent> {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final employeeId = prefs.getInt('idEmployee');
 
+      _applyProfileFromPrefs(prefs);
+      final hasCachedCore = (prefs.getString('employeeName') ?? '').isNotEmpty &&
+          (prefs.getString('jobTitle') ?? '').isNotEmpty &&
+          (prefs.getString('email') ?? '').isNotEmpty &&
+          (prefs.getString('telepon') ?? '').isNotEmpty;
+      final lastFetchAt = prefs.getInt('employeeLastFetchAt') ?? 0;
+      const refreshIntervalMs = 24 * 60 * 60 * 1000; // 24 jam
+      final isCacheFresh =
+          lastFetchAt > 0 &&
+          DateTime.now().millisecondsSinceEpoch - lastFetchAt <
+              refreshIntervalMs;
+
       if (employeeId == null || employeeId <= 0) {
         setState(() {
           _employeeName = "Nama Tidak Tersedia";
@@ -900,6 +985,10 @@ class _MasterContentState extends State<MasterContent> {
           _email = "Email Tidak Tersedia";
           _telepon = "Telepon Tidak Tersedia";
         });
+        return;
+      }
+
+      if (hasCachedCore && isCacheFresh) {
         return;
       }
 
@@ -927,6 +1016,7 @@ class _MasterContentState extends State<MasterContent> {
       if (response.statusCode == 200) {
         final data =
             response.data is String ? jsonDecode(response.data) : response.data;
+        await _saveEmployeeToPrefs(prefs, Map<String, dynamic>.from(data));
         setState(() {
           _employeeName = data['EmployeeName'] ?? "Nama Tidak Tersedia";
           _jobTitle = data['JobTitle'] ?? "Departemen Tidak Tersedia";

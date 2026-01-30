@@ -34,12 +34,13 @@ class ApiService {
   }
 
   /// POST request dengan token
-static Future<Response> post(
+  static Future<Response> post(
     String url, {
     dynamic data,
     Map<String, dynamic>? headers,
     String? contentType,
     ResponseType? responseType,
+    ValidateStatus? validateStatus,
   }) async {
     final token = await getToken();
     final combinedHeaders = {
@@ -54,6 +55,7 @@ static Future<Response> post(
       options: Options(
         headers: combinedHeaders,
         responseType: responseType ?? ResponseType.json,
+        validateStatus: validateStatus,
       ),
     );
   }
